@@ -19,6 +19,46 @@ export class UserService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
+  async getMe(userId: number) {
+    const user = await this.userRepository.findOne({
+      where: {
+        id: userId,
+      },
+      relations: {
+        userRoles: {
+          role: true,
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
+
+    const roles = user.userRoles.map((userRole) => userRole.role.code);
+
+    return {
+      message: 'Lấy thông tin người dùng thành công',
+      data: {
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName,
+        email: user.email,
+        gender: user.gender,
+        dateOfBirth: user.dateOfBirth,
+        avatar: user.avatar,
+        position: user.position,
+        provinceCity: user.provinceCity,
+        wardCommune: user.wardCommune,
+        address: user.address,
+        isActive: user.isActive,
+        roles,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    };
+  }
+
   async updateUser(
     id: number,
     updateUserDto: UpdateUserDto,
