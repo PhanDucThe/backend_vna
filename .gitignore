@@ -48,6 +48,7 @@ Thumbs.db
 # local env backups
 .env.backup
 .env.*
+!.env.example
 
 # temp directory
 .temp

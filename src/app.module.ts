@@ -15,6 +15,8 @@ import { UserService } from './services/user.service';
 import { CloudinaryService } from './services/cloudinary.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { EmailOtp } from './entities/email-otp.entity';
+import { MailService } from './services/mail.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -65,6 +67,8 @@ import { EmailOtp } from './entities/email-otp.entity';
     AuthService,
     UserService,
     CloudinaryService,
+    MailService,
+    JwtAuthGuard,
     RoleSeedService,
     UserSeedService,
   ],

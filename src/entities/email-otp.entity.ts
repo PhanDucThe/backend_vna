@@ -17,6 +17,21 @@ export class EmailOtp {
   email: string;
 
   @Column({
+    name: 'user_id',
+    type: 'integer',
+    nullable: true,
+  })
+  userId: number | null;
+
+  @Column({
+    name: 'pending_email',
+    type: 'varchar',
+    length: 150,
+    nullable: true,
+  })
+  pendingEmail: string | null;
+
+  @Column({
     name: 'otp_hash',
     type: 'text',
   })
@@ -32,6 +47,18 @@ export class EmailOtp {
     default: false,
   })
   isUsed: boolean;
+
+  @Column({
+    name: 'verified_at',
+    type: 'timestamp',
+    nullable: true,
+  })
+  verifiedAt: Date | null;
+
+  @Column({
+    default: 0,
+  })
+  attempts: number;
 
   @Column({
     name: 'expires_at',
