@@ -15,6 +15,7 @@ import {
   UpdateChangeGmailDto,
   VerifyChangeGmailOtpDto,
 } from '../dtos/change-gmail.dto';
+import { ChangePasswordDto } from '../dtos/change-password.dto';
 import { ForgotPasswordDto } from '../dtos/forgot-password.dto';
 import { LoginDto } from '../dtos/login.dto';
 import { ResetPasswordDto } from '../dtos/reset-password.dto';
@@ -265,7 +266,54 @@ export class AuthService {
     };
   }
 
-  async sendChangeGmailOtp(user: User) {
+  async changePassword(
+    userId: number,
+    changePasswordDto: ChangePasswordDto,
+  ) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
+
+    if (!user.isActive) {
+      throw new BadRequestException('Tài khoản đã bị khóa');
+    }
+
+    const isOldPasswordValid = await bcrypt.compare(
+      changePasswordDto.oldPassword,
+      user.password,
+    );
+
+    if (!isOldPasswordValid) {
+      throw new BadRequestException('Mật khẩu cũ không đúng');
+    }
+
+    if (changePasswordDto.newPassword !== changePasswordDto.confirmPassword) {
+      throw new BadRequestException(
+        'Mật khẩu mới và nhập lại mật khẩu không khớp',
+      );
+    }
+
+    if (changePasswordDto.oldPassword === changePasswordDto.newPassword) {
+      throw new BadRequestException(
+        'Mật khẩu mới không được trùng với mật khẩu cũ',
+      );
+    }
+
+    user.password = await bcrypt.hash(changePasswordDto.newPassword, 10);
+    await this.userRepository.save(user);
+
+    return {
+      message: 'Đổi mật khẩu thành công',
+      data: null,
+    };
+  }
+
+  async sendChangeGmailOtp(userId: number) {
+    const user = await this.findActiveUserById(userId);
     const otp = this.generateOtp();
     const expireMinutes = this.getOtpExpireMinutes();
     const currentEmail = this.normalizeEmail(user.email);
@@ -324,7 +372,8 @@ export class AuthService {
     };
   }
 
-  async verifyChangeGmailOtp(user: User, body: VerifyChangeGmailOtpDto) {
+  async verifyChangeGmailOtp(userId: number, body: VerifyChangeGmailOtpDto) {
+    const user = await this.findActiveUserById(userId);
     const emailOtp = await this.emailOtpRepository.findOne({
       where: {
         userId: user.id,
@@ -348,7 +397,8 @@ export class AuthService {
     };
   }
 
-  async updateChangeGmail(user: User, body: UpdateChangeGmailDto) {
+  async updateChangeGmail(userId: number, body: UpdateChangeGmailDto) {
+    const user = await this.findActiveUserById(userId);
     const newEmail = this.normalizeEmail(body.newEmail);
     await this.assertNewEmailCanBeUsed(user, newEmail);
 
@@ -402,6 +452,22 @@ export class AuthService {
     if (existedUser) {
       throw new BadRequestException('Email đã được sử dụng');
     }
+  }
+
+  private async findActiveUserById(userId: number) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
+
+    if (!user.isActive) {
+      throw new BadRequestException('Tài khoản đã bị khóa');
+    }
+
+    return user;
   }
 
   private assertVerifiedChangeGmailOtp(emailOtp: EmailOtp | null): EmailOtp {

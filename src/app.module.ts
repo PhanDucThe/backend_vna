@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PassportModule } from '@nestjs/passport';
 
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
@@ -17,6 +18,7 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { EmailOtp } from './entities/email-otp.entity';
 import { MailService } from './services/mail.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
@@ -41,6 +43,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
         synchronize: true,
       }),
     }),
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     TypeOrmModule.forFeature([User, Role, UserRole, RefreshToken, EmailOtp]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -69,6 +72,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     CloudinaryService,
     MailService,
     JwtAuthGuard,
+    JwtStrategy,
     RoleSeedService,
     UserSeedService,
   ],

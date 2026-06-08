@@ -5,27 +5,24 @@ import {
   HttpCode,
   HttpStatus,
   Ip,
+  Patch,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
 
 import {
   UpdateChangeGmailDto,
   VerifyChangeGmailOtpDto,
 } from '../dtos/change-gmail.dto';
+import { CurrentUser } from '../decorators/current-user.decorator';
+import type { CurrentUserData } from '../decorators/current-user.decorator';
+import { ChangePasswordDto } from '../dtos/change-password.dto';
 import { ForgotPasswordDto } from '../dtos/forgot-password.dto';
 import { LoginDto } from '../dtos/login.dto';
 import { ResetPasswordDto } from '../dtos/reset-password.dto';
 import { VerifyForgotPasswordOtpDto } from '../dtos/verify-forgot-password-otp.dto';
-import { User } from '../entities/user.entity';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { AuthService } from '../services/auth.service';
-
-interface AuthenticatedRequest extends Request {
-  user: User;
-}
 
 @Controller('auth')
 export class AuthController {
@@ -71,30 +68,43 @@ export class AuthController {
     return this.authService.resetPassword(body);
   }
 
+  @Patch('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  changePassword(
+    @CurrentUser() currentUser: CurrentUserData,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(
+      currentUser.id,
+      changePasswordDto,
+    );
+  }
+
   @Post('change-gmail/send-otp')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  sendChangeGmailOtp(@Req() request: AuthenticatedRequest) {
-    return this.authService.sendChangeGmailOtp(request.user);
+  sendChangeGmailOtp(@CurrentUser() currentUser: CurrentUserData) {
+    return this.authService.sendChangeGmailOtp(currentUser.id);
   }
 
   @Post('change-gmail/verify-otp')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   verifyChangeGmailOtp(
-    @Req() request: AuthenticatedRequest,
+    @CurrentUser() currentUser: CurrentUserData,
     @Body() body: VerifyChangeGmailOtpDto,
   ) {
-    return this.authService.verifyChangeGmailOtp(request.user, body);
+    return this.authService.verifyChangeGmailOtp(currentUser.id, body);
   }
 
   @Post('change-gmail/update')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   updateChangeGmail(
-    @Req() request: AuthenticatedRequest,
+    @CurrentUser() currentUser: CurrentUserData,
     @Body() body: UpdateChangeGmailDto,
   ) {
-    return this.authService.updateChangeGmail(request.user, body);
+    return this.authService.updateChangeGmail(currentUser.id, body);
   }
 }
