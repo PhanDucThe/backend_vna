@@ -45,7 +45,7 @@ export class UserSeedService implements OnApplicationBootstrap {
       username: 'admin',
       password: '123456',
       fullName: 'Quản trị viên',
-      email: 'admin@gmail.com',
+      email: 'maytinh519gmail.com',
       role: adminRole,
       position: 'Admin hệ thống',
     });
