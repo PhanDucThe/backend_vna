@@ -4,7 +4,8 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
+import { UploadApiResponse, v2 as cloudinary } from 'cloudinary';
+import type {} from 'multer';
 import { Readable } from 'stream';
 
 @Injectable()
@@ -22,11 +23,15 @@ export class CloudinaryService {
     folder = 'users',
   ): Promise<UploadApiResponse> {
     if (!file) {
-      throw new BadRequestException('Vui lòng chọn ảnh');
+      throw new BadRequestException('Vui long chon anh');
     }
 
     if (!file.mimetype.startsWith('image/')) {
-      throw new BadRequestException('File upload phải là ảnh');
+      throw new BadRequestException('File upload phai la anh');
+    }
+
+    if (!file.buffer) {
+      throw new BadRequestException('Khong doc duoc du lieu anh upload');
     }
 
     return new Promise((resolve, reject) => {
@@ -37,18 +42,20 @@ export class CloudinaryService {
         },
         (error, result) => {
           if (error) {
-            reject(new InternalServerErrorException('Upload ảnh thất bại'));
+            reject(new InternalServerErrorException('Upload anh that bai'));
+            return;
           }
 
           if (!result) {
             reject(
               new InternalServerErrorException(
-                'Không nhận được kết quả upload',
+                'Khong nhan duoc ket qua upload',
               ),
             );
+            return;
           }
 
-          resolve(result as UploadApiResponse);
+          resolve(result);
         },
       );
 

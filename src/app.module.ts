@@ -18,6 +18,7 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { EmailOtp } from './entities/email-otp.entity';
 import { MailService } from './services/mail.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -72,6 +73,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     CloudinaryService,
     MailService,
     JwtAuthGuard,
+    RolesGuard,
     JwtStrategy,
     RoleSeedService,
     UserSeedService,

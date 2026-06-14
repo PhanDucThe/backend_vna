@@ -41,46 +41,46 @@ export class User {
     length: 20,
     nullable: true,
   })
-  gender: string;
+  gender: string | null;
 
   @Column({
     name: 'date_of_birth',
     type: 'date',
     nullable: true,
   })
-  dateOfBirth: Date;
+  dateOfBirth: Date | null;
 
   @Column({
     length: 255,
     nullable: true,
   })
-  avatar: string;
+  avatar: string | null;
 
   @Column({
     length: 100,
     nullable: true,
   })
-  position: string;
+  position: string | null;
 
   @Column({
     name: 'province_city',
     length: 150,
     nullable: true,
   })
-  provinceCity: string;
+  provinceCity: string | null;
 
   @Column({
     name: 'ward_commune',
     length: 150,
     nullable: true,
   })
-  wardCommune: string;
+  wardCommune: string | null;
 
   @Column({
     type: 'text',
     nullable: true,
   })
-  address: string;
+  address: string | null;
 
   @Column({
     default: true,

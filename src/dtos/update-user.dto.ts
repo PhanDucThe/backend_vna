@@ -8,6 +8,14 @@ import {
 export class UpdateUserDto {
   @IsOptional()
   @IsString()
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+  @IsOptional()
+  @IsString()
   fullName?: string;
 
   @IsOptional()
@@ -25,6 +33,26 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   position?: string;
+
+  @IsOptional()
+  @IsString()
+  roleId?: string;
+
+  @IsOptional()
+  @IsString()
+  roleCode?: string;
+
+  @IsOptional()
+  @IsString()
+  role?: string;
+
+  @IsOptional()
+  @IsString()
+  avatar?: string;
+
+  @IsOptional()
+  @IsBooleanString()
+  removeAvatar?: string;
 
   @IsOptional()
   @IsString()
