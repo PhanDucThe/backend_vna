@@ -10,6 +10,7 @@ import type {} from 'multer';
 import { Repository } from 'typeorm';
 
 import type { CurrentUserData } from '../decorators/current-user.decorator';
+import { CreateUserDto } from '../dtos/create-user.dto';
 import { ListUsersQueryDto } from '../dtos/list-users-query.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
 import { Role } from '../entities/role.entity';
@@ -168,6 +169,73 @@ export class UserService {
     return {
       message: 'Lay chi tiet nguoi dung thanh cong',
       data: this.mapUserDetail(user),
+    };
+  }
+
+  async createUser(
+    createUserDto: CreateUserDto,
+    currentUser: CurrentUserData,
+    file?: Express.Multer.File,
+  ) {
+    if (!currentUser.roles.includes('ADMIN')) {
+      throw new BadRequestException('Ban khong co quyen tao nguoi dung');
+    }
+
+    const username = this.toRequiredString(createUserDto.username);
+    const email = this.toRequiredString(createUserDto.email);
+
+    await this.validateUniqueUsername(0, username, '');
+    await this.validateUniqueEmail(0, email, '');
+
+    const requestedRole =
+      (await this.getRequestedRole(createUserDto)) ??
+      (await this.getDefaultUserRole());
+
+    let avatarUrl: string | null = null;
+
+    if (file) {
+      const uploadResult = await this.cloudinaryService.uploadImage(
+        file,
+        this.configService.get<string>('CLOUDINARY_FOLDER_USERS') || 'users',
+      );
+
+      avatarUrl = uploadResult.secure_url;
+    }
+
+    const user = this.userRepository.create({
+      username,
+      password: await bcrypt.hash(this.toRequiredString(createUserDto.password), 10),
+      fullName: this.toRequiredString(createUserDto.fullName),
+      email,
+      gender: this.toOptionalString(createUserDto.gender, null),
+      dateOfBirth: createUserDto.dateOfBirth
+        ? new Date(createUserDto.dateOfBirth)
+        : null,
+      avatar: avatarUrl,
+      position: this.toOptionalString(createUserDto.position, null),
+      provinceCity: this.toOptionalString(createUserDto.provinceCity, null),
+      wardCommune: this.toOptionalString(createUserDto.wardCommune, null),
+      address: this.toOptionalString(createUserDto.address, null),
+      isActive:
+        createUserDto.isActive === undefined
+          ? true
+          : createUserDto.isActive === 'true',
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    await this.userRoleRepository.save(
+      this.userRoleRepository.create({
+        user: savedUser,
+        role: requestedRole,
+      }),
+    );
+
+    const createdUser = await this.findManageableUser(savedUser.id, currentUser);
+
+    return {
+      message: 'Tao nguoi dung thanh cong',
+      data: this.mapUserDetail(createdUser),
     };
   }
 
@@ -362,6 +430,20 @@ export class UserService {
     return requestedRole;
   }
 
+  private async getDefaultUserRole() {
+    const userRole = await this.roleRepository.findOne({
+      where: {
+        code: 'USER',
+      },
+    });
+
+    if (!userRole) {
+      throw new BadRequestException('Chua cau hinh vai tro USER');
+    }
+
+    return userRole;
+  }
+
   private excludeAdminUsers(queryBuilder: ReturnType<Repository<User>['createQueryBuilder']>) {
     queryBuilder.andWhere(
       `NOT EXISTS (
@@ -392,6 +474,16 @@ export class UserService {
   private toTrimmedValue(value: string | undefined) {
     const trimmedValue = value?.trim();
     return trimmedValue ? trimmedValue : undefined;
+  }
+
+  private toRequiredString(value: string | undefined) {
+    const trimmedValue = value?.trim();
+
+    if (!trimmedValue) {
+      throw new BadRequestException('Du lieu bat buoc khong duoc de trong');
+    }
+
+    return trimmedValue;
   }
 
   private toOptionalString(

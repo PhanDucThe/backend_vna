@@ -5,6 +5,7 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  Post,
   Query,
   UploadedFile,
   UseGuards,
@@ -15,6 +16,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
+  ApiCreatedResponse,
   ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
@@ -26,6 +28,7 @@ import { memoryStorage } from 'multer';
 import type {} from 'multer';
 
 import { Roles } from '../decorators/roles.decorator';
+import { CreateUserDto } from '../dtos/create-user.dto';
 import { ListUsersQueryDto } from '../dtos/list-users-query.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
 import { UserService } from '../services/user.service';
@@ -128,6 +131,75 @@ export class UserController {
     currentUser: currentUserDecorator.CurrentUserData,
   ) {
     return this.userService.getUserDetail(id, currentUser);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Them moi nguoi dung',
+    description:
+      'Chi ADMIN duoc tao user thuong. Khong cho gan role ADMIN tai man quan ly nguoi dung. Dung multipart/form-data neu can upload avatar.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['username', 'password', 'fullName', 'email'],
+      properties: {
+        username: { type: 'string', example: 'user01' },
+        password: { type: 'string', example: '123456' },
+        fullName: { type: 'string', example: 'Nguyen Van A' },
+        email: { type: 'string', example: 'user01@gmail.com' },
+        gender: { type: 'string', example: 'Nam' },
+        dateOfBirth: { type: 'string', example: '1995-06-01' },
+        position: { type: 'string', example: 'Chuyen vien' },
+        roleCode: { type: 'string', example: 'USER' },
+        provinceCity: { type: 'string', example: 'Thanh pho Ho Chi Minh' },
+        wardCommune: { type: 'string', example: 'Phuong Go Vap' },
+        address: { type: 'string', example: '123 Le Loi' },
+        isActive: { type: 'string', example: 'true' },
+        avatar: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiCreatedResponse({
+    description: 'User vua tao',
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiSuccessResponseDto) },
+        {
+          properties: {
+            data: { $ref: getSchemaPath(UserDetailResponseDto) },
+          },
+        },
+      ],
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024,
+      },
+      fileFilter: (_req, file, callback) => {
+        if (!file.mimetype.startsWith('image/')) {
+          callback(new Error('File upload phai la anh'), false);
+          return;
+        }
+
+        callback(null, true);
+      },
+    }),
+  )
+  createUser(
+    @Body() createUserDto: CreateUserDto,
+    @currentUserDecorator.CurrentUser()
+    currentUser: currentUserDecorator.CurrentUserData,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.userService.createUser(createUserDto, currentUser, file);
   }
 
   @Patch(':id')
