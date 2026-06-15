@@ -370,4 +370,13 @@ export class BusinessController {
   deleteBusiness(@Param('id', ParseIntPipe) id: number) {
     return this.businessService.deleteBusiness(id);
   }
+
+  @Delete(':id/attachments/:attachmentId')
+  @ApiOperation({ summary: 'Xoa file dinh kem cua doanh nghiep' })
+  deleteAttachment(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('attachmentId', ParseIntPipe) attachmentId: number,
+  ) {
+    return this.businessService.deleteAttachment(id, attachmentId);
+  }
 }

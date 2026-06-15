@@ -28,7 +28,7 @@ export class UpdateBusinessDto {
   })
   @IsOptional()
   @Matches(/^\d{10}(-\d{3})?$/, {
-    message: 'Ma so thue phai gom 10 so hoac dang 10 so-3 so',
+    message: 'Mã số thuế phải gồm 10 số hoặc dạng 10 số-3 số',
   })
   taxCode?: string;
 
@@ -37,13 +37,13 @@ export class UpdateBusinessDto {
     enum: BUSINESS_TYPES,
   })
   @IsOptional()
-  @IsIn(BUSINESS_TYPES, { message: 'Loai hinh kinh doanh khong hop le' })
+  @IsIn(BUSINESS_TYPES, { message: 'Loại hình kinh doanh không hợp lệ' })
   businessType?: string;
 
   @ApiPropertyOptional({ example: '4669', description: 'Ma cap 4 VSIC' })
   @IsOptional()
   @Matches(/^\d{4}$/, {
-    message: 'Ma nganh nghe kinh doanh cap 4 phai gom 4 chu so',
+    message: 'Mã ngành nghề kinh doanh cấp 4 phải gồm 4 chữ số',
   })
   industryCode?: string;
 
@@ -76,7 +76,7 @@ export class UpdateBusinessDto {
 
   @ApiPropertyOptional({ example: 'vna@gmail.com' })
   @IsOptional()
-  @IsEmail({}, { message: 'Email khong hop le' })
+  @IsEmail({}, { message: 'Email không hợp lệ' })
   email?: string;
 
   @ApiPropertyOptional({ example: '02812345678' })

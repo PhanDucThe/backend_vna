@@ -6,7 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 
 import { CreateBusinessDto } from '../dtos/create-business.dto';
 import { BUSINESS_TYPES } from '../dtos/create-business.dto';
@@ -46,7 +46,7 @@ export class BusinessService {
 
   getBusinessOptions() {
     return {
-      message: 'Lay danh muc doanh nghiep thanh cong',
+      message: 'Lấy danh mục doanh nghiệp thành công',
       data: {
         businessTypes: BUSINESS_TYPES,
         taxCodeRules: {
@@ -54,7 +54,7 @@ export class BusinessService {
           examples: ['910000888292'.slice(0, 10), '0100109106-001'],
         },
         industryLevel: 4,
-        industryCodeRule: 'Ma nganh nghe cap 4 gom 4 chu so theo VSIC',
+        industryCodeRule: 'Mã ngành nghề cấp 4 gồm 4 chữ số theo VSIC',
       },
     };
   }
@@ -135,7 +135,7 @@ export class BusinessService {
     const totalPages = Math.ceil(totalItems / limit);
 
     return {
-      message: 'Lay danh sach doanh nghiep thanh cong',
+      message: 'Lấy danh sách doanh nghiệp thành công',
       data: {
         items: businesses.map((business) => this.mapBusiness(business)),
         meta: {
@@ -154,7 +154,7 @@ export class BusinessService {
     const business = await this.findBusiness(id);
 
     return {
-      message: 'Lay chi tiet doanh nghiep thanh cong',
+      message: 'Lấy chi tiết doanh nghiệp thành công',
       data: this.mapBusiness(business),
     };
   }
@@ -168,55 +168,166 @@ export class BusinessService {
     await this.validateUniqueTaxCode(taxCode);
     await this.validateUniqueBusinessAccount(taxCode, createBusinessDto.email);
     this.validateBusinessPayload(createBusinessDto);
-    const accountUser = await this.createBusinessAccount(createBusinessDto, taxCode);
 
-    const business = this.businessRepository.create({
-      businessName: this.toRequiredValue(createBusinessDto.businessName),
-      foreignName: this.toOptionalValue(createBusinessDto.foreignName),
-      taxCode,
-      businessType: this.toRequiredValue(createBusinessDto.businessType),
-      industryCode: this.toRequiredValue(createBusinessDto.industryCode),
-      industryName: this.toRequiredValue(createBusinessDto.industryName),
-      licenseIssueDate: this.toDateValue(createBusinessDto.licenseIssueDate),
-      provinceCity: this.toRequiredValue(createBusinessDto.provinceCity),
-      wardCommune: this.toRequiredValue(createBusinessDto.wardCommune),
-      address: this.toOptionalValue(createBusinessDto.address),
-      email: this.toOptionalValue(createBusinessDto.email),
-      agencyPhone: this.toOptionalValue(createBusinessDto.agencyPhone),
-      operatingProvinceCity: this.toOptionalValue(
-        createBusinessDto.operatingProvinceCity,
-      ),
-      operatingWardCommune: this.toOptionalValue(
-        createBusinessDto.operatingWardCommune,
-      ),
-      businessLocation: this.toOptionalValue(
-        createBusinessDto.businessLocation,
-      ),
-      representativeName: this.toOptionalValue(
-        createBusinessDto.representativeName,
-      ),
-      representativePhone: this.toOptionalValue(
-        createBusinessDto.representativePhone,
-      ),
-      isActive: this.toBoolean(createBusinessDto.isActive, true),
-      accountUser,
-    });
+    const createdBusiness = await this.businessRepository.manager.transaction(
+      async (tem: EntityManager) => {
+        // 1. Create default business user account
+        const accountUser = await this.createBusinessAccountTx(
+          tem,
+          createBusinessDto,
+          taxCode,
+        );
 
-    const savedBusiness = await this.businessRepository.save(business);
-    await this.saveAttachments(savedBusiness, files, createBusinessDto.attachmentNames);
+        // 2. Instantiate and save business entity
+        const business = tem.create(Business, {
+          businessName: this.toRequiredValue(createBusinessDto.businessName),
+          foreignName: this.toOptionalValue(createBusinessDto.foreignName),
+          taxCode,
+          businessType: this.toRequiredValue(createBusinessDto.businessType),
+          industryCode: this.toRequiredValue(createBusinessDto.industryCode),
+          industryName: this.toRequiredValue(createBusinessDto.industryName),
+          licenseIssueDate: this.toDateValue(createBusinessDto.licenseIssueDate),
+          provinceCity: this.toRequiredValue(createBusinessDto.provinceCity),
+          wardCommune: this.toRequiredValue(createBusinessDto.wardCommune),
+          address: this.toOptionalValue(createBusinessDto.address),
+          email: this.toOptionalValue(createBusinessDto.email),
+          agencyPhone: this.toOptionalValue(createBusinessDto.agencyPhone),
+          operatingProvinceCity: this.toOptionalValue(
+            createBusinessDto.operatingProvinceCity,
+          ),
+          operatingWardCommune: this.toOptionalValue(
+            createBusinessDto.operatingWardCommune,
+          ),
+          businessLocation: this.toOptionalValue(
+            createBusinessDto.businessLocation,
+          ),
+          representativeName: this.toOptionalValue(
+            createBusinessDto.representativeName,
+          ),
+          representativePhone: this.toOptionalValue(
+            createBusinessDto.representativePhone,
+          ),
+          isActive: this.toBoolean(createBusinessDto.isActive, true),
+          accountUser,
+        });
 
-    const createdBusiness = await this.findBusiness(savedBusiness.id);
+        const savedBusiness = await tem.save(Business, business);
+
+        // 3. Save attachments
+        await this.saveAttachmentsTx(
+          tem,
+          savedBusiness,
+          files,
+          createBusinessDto.attachmentNames,
+        );
+
+        return savedBusiness;
+      },
+    );
+
+    const createdBusinessWithRelations = await this.findBusiness(createdBusiness.id);
 
     return {
-      message: 'Them doanh nghiep thanh cong',
+      message: 'Thêm doanh nghiệp thành công',
       data: {
-        ...this.mapBusiness(createdBusiness),
+        ...this.mapBusiness(createdBusinessWithRelations),
         accountInfo: {
           username: taxCode,
           password: DEFAULT_BUSINESS_ACCOUNT_PASSWORD,
         },
       },
     };
+  }
+
+  private async createBusinessAccountTx(
+    tem: EntityManager,
+    createBusinessDto: CreateBusinessDto,
+    taxCode: string,
+  ) {
+    const userRole = await tem.findOne(Role, {
+      where: {
+        code: 'USER',
+      },
+    });
+
+    if (!userRole) {
+      throw new BadRequestException('Chua cau hinh vai tro USER');
+    }
+
+    const email =
+      this.toTrimmedValue(createBusinessDto.email) ||
+      `${taxCode}@business.local`;
+
+    const accountUser = await tem.save(
+      User,
+      tem.create(User, {
+        username: taxCode,
+        password: await bcrypt.hash(DEFAULT_BUSINESS_ACCOUNT_PASSWORD, 10),
+        fullName: this.toRequiredValue(createBusinessDto.businessName),
+        email,
+        position: 'Doanh nghiep',
+        provinceCity: this.toOptionalValue(createBusinessDto.provinceCity),
+        wardCommune: this.toOptionalValue(createBusinessDto.wardCommune),
+        address: this.toOptionalValue(createBusinessDto.address),
+        isActive: true,
+      }),
+    );
+
+    await tem.save(
+      UserRole,
+      tem.create(UserRole, {
+        user: accountUser,
+        role: userRole,
+      }),
+    );
+
+    return accountUser;
+  }
+
+  private async saveAttachmentsTx(
+    tem: EntityManager,
+    business: Business,
+    files: Express.Multer.File[],
+    attachmentNames?: string,
+  ) {
+    if (!files.length) {
+      return;
+    }
+
+    const names = this.parseAttachmentNames(attachmentNames);
+    const folder =
+      this.configService.get<string>('CLOUDINARY_FOLDER_BUSINESSES') ||
+      'businesses';
+
+    for (const [index, file] of files.entries()) {
+      const uploadResult = await this.cloudinaryService.uploadFile(file, folder);
+      const displayName = names[index] || file.originalname;
+
+      // Find and remove existing attachment with same displayName for this business
+      const existedAttachment = await tem.findOne(BusinessAttachment, {
+        where: {
+          business: { id: business.id },
+          displayName,
+        },
+      });
+
+      if (existedAttachment) {
+        await tem.remove(BusinessAttachment, existedAttachment);
+      }
+
+      await tem.save(
+        BusinessAttachment,
+        tem.create(BusinessAttachment, {
+          business,
+          displayName,
+          originalName: file.originalname,
+          fileUrl: uploadResult.secure_url,
+          publicId: uploadResult.public_id,
+          mimetype: file.mimetype,
+          size: file.size,
+        }),
+      );
+    }
   }
 
   async updateBusiness(
@@ -233,77 +344,86 @@ export class BusinessService {
 
     if (nextTaxCode && nextTaxCode !== business.taxCode) {
       await this.validateUniqueTaxCode(nextTaxCode, id);
-      business.taxCode = nextTaxCode;
     }
 
-    business.businessName =
-      this.toTrimmedValue(updateBusinessDto.businessName) ??
-      business.businessName;
-    business.foreignName = this.toOptionalValue(
-      updateBusinessDto.foreignName,
-      business.foreignName,
-    );
-    business.businessType =
-      this.toTrimmedValue(updateBusinessDto.businessType) ??
-      business.businessType;
-    business.industryCode =
-      this.toTrimmedValue(updateBusinessDto.industryCode) ??
-      business.industryCode;
-    business.industryName =
-      this.toTrimmedValue(updateBusinessDto.industryName) ??
-      business.industryName;
-    business.licenseIssueDate =
-      updateBusinessDto.licenseIssueDate === undefined
-        ? business.licenseIssueDate
-        : this.toDateValue(updateBusinessDto.licenseIssueDate);
-    business.provinceCity =
-      this.toTrimmedValue(updateBusinessDto.provinceCity) ??
-      business.provinceCity;
-    business.wardCommune =
-      this.toTrimmedValue(updateBusinessDto.wardCommune) ??
-      business.wardCommune;
-    business.address = this.toOptionalValue(
-      updateBusinessDto.address,
-      business.address,
-    );
-    business.email = this.toOptionalValue(updateBusinessDto.email, business.email);
-    business.agencyPhone = this.toOptionalValue(
-      updateBusinessDto.agencyPhone,
-      business.agencyPhone,
-    );
-    business.operatingProvinceCity = this.toOptionalValue(
-      updateBusinessDto.operatingProvinceCity,
-      business.operatingProvinceCity,
-    );
-    business.operatingWardCommune = this.toOptionalValue(
-      updateBusinessDto.operatingWardCommune,
-      business.operatingWardCommune,
-    );
-    business.businessLocation = this.toOptionalValue(
-      updateBusinessDto.businessLocation,
-      business.businessLocation,
-    );
-    business.representativeName = this.toOptionalValue(
-      updateBusinessDto.representativeName,
-      business.representativeName,
-    );
-    business.representativePhone = this.toOptionalValue(
-      updateBusinessDto.representativePhone,
-      business.representativePhone,
+    const updatedBusiness = await this.businessRepository.manager.transaction(
+      async (tem: EntityManager) => {
+        if (nextTaxCode && nextTaxCode !== business.taxCode) {
+          business.taxCode = nextTaxCode;
+        }
+
+        business.businessName =
+          this.toTrimmedValue(updateBusinessDto.businessName) ??
+          business.businessName;
+        business.foreignName = this.toOptionalValue(
+          updateBusinessDto.foreignName,
+          business.foreignName,
+        );
+        business.businessType =
+          this.toTrimmedValue(updateBusinessDto.businessType) ??
+          business.businessType;
+        business.industryCode =
+          this.toTrimmedValue(updateBusinessDto.industryCode) ??
+          business.industryCode;
+        business.industryName =
+          this.toTrimmedValue(updateBusinessDto.industryName) ??
+          business.industryName;
+        business.licenseIssueDate =
+          updateBusinessDto.licenseIssueDate === undefined
+            ? business.licenseIssueDate
+            : this.toDateValue(updateBusinessDto.licenseIssueDate);
+        business.provinceCity =
+          this.toTrimmedValue(updateBusinessDto.provinceCity) ??
+          business.provinceCity;
+        business.wardCommune =
+          this.toTrimmedValue(updateBusinessDto.wardCommune) ??
+          business.wardCommune;
+        business.address = this.toOptionalValue(
+          updateBusinessDto.address,
+          business.address,
+        );
+        business.email = this.toOptionalValue(updateBusinessDto.email, business.email);
+        business.agencyPhone = this.toOptionalValue(
+          updateBusinessDto.agencyPhone,
+          business.agencyPhone,
+        );
+        business.operatingProvinceCity = this.toOptionalValue(
+          updateBusinessDto.operatingProvinceCity,
+          business.operatingProvinceCity,
+        );
+        business.operatingWardCommune = this.toOptionalValue(
+          updateBusinessDto.operatingWardCommune,
+          business.operatingWardCommune,
+        );
+        business.businessLocation = this.toOptionalValue(
+          updateBusinessDto.businessLocation,
+          business.businessLocation,
+        );
+        business.representativeName = this.toOptionalValue(
+          updateBusinessDto.representativeName,
+          business.representativeName,
+        );
+        business.representativePhone = this.toOptionalValue(
+          updateBusinessDto.representativePhone,
+          business.representativePhone,
+        );
+
+        if (updateBusinessDto.isActive !== undefined) {
+          business.isActive = this.toBoolean(updateBusinessDto.isActive);
+        }
+
+        const saved = await tem.save(Business, business);
+        await this.saveAttachmentsTx(tem, saved, files, updateBusinessDto.attachmentNames);
+
+        return saved;
+      },
     );
 
-    if (updateBusinessDto.isActive !== undefined) {
-      business.isActive = this.toBoolean(updateBusinessDto.isActive);
-    }
-
-    const savedBusiness = await this.businessRepository.save(business);
-    await this.saveAttachments(savedBusiness, files, updateBusinessDto.attachmentNames);
-
-    const updatedBusiness = await this.findBusiness(id);
+    const updatedBusinessWithRelations = await this.findBusiness(id);
 
     return {
-      message: 'Cap nhat doanh nghiep thanh cong',
-      data: this.mapBusiness(updatedBusiness),
+      message: 'Cập nhật doanh nghiệp thành công',
+      data: this.mapBusiness(updatedBusinessWithRelations),
     };
   }
 
@@ -314,7 +434,7 @@ export class BusinessService {
     const savedBusiness = await this.businessRepository.save(business);
 
     return {
-      message: 'Cap nhat trang thai doanh nghiep thanh cong',
+      message: 'Cập nhật trạng thái doanh nghiệp thành công',
       data: this.mapBusiness(savedBusiness),
     };
   }
@@ -322,11 +442,47 @@ export class BusinessService {
   async deleteBusiness(id: number) {
     const business = await this.findBusiness(id);
 
-    await this.businessRepository.remove(business);
+    await this.businessRepository.manager.transaction(async (tem: EntityManager) => {
+      // 1. Delete associated user role entries and the user account
+      if (business.accountUser) {
+        await tem.createQueryBuilder()
+          .delete()
+          .from(UserRole)
+          .where('user_id = :userId', { userId: business.accountUser.id })
+          .execute();
+
+        await tem.remove(User, business.accountUser);
+      }
+
+      // 2. Delete attachments
+      if (business.attachments && business.attachments.length > 0) {
+        await tem.remove(business.attachments);
+      }
+
+      // 3. Delete the business itself
+      await tem.remove(Business, business);
+    });
 
     return {
-      message: 'Xoa doanh nghiep thanh cong',
+      message: 'Xóa doanh nghiệp thành công',
       data: { id },
+    };
+  }
+
+  async deleteAttachment(businessId: number, attachmentId: number) {
+    const attachment = await this.attachmentRepository.findOne({
+      where: { id: attachmentId, business: { id: businessId } },
+    });
+
+    if (!attachment) {
+      throw new NotFoundException('Không tìm thấy file đính kèm');
+    }
+
+    await this.attachmentRepository.remove(attachment);
+
+    return {
+      message: 'Xóa file đính kèm thành công',
+      data: { id: attachmentId },
     };
   }
 
@@ -345,7 +501,7 @@ export class BusinessService {
     });
 
     if (!business) {
-      throw new NotFoundException('Khong tim thay doanh nghiep');
+      throw new NotFoundException('Không tìm thấy doanh nghiệp');
     }
 
     return business;
@@ -363,7 +519,7 @@ export class BusinessService {
     const existedBusiness = await queryBuilder.getOne();
 
     if (existedBusiness) {
-      throw new BadRequestException('Ma so thue da ton tai');
+      throw new BadRequestException('Mã số thuế đã tồn tại');
     }
   }
 
@@ -376,7 +532,7 @@ export class BusinessService {
 
     if (existedUsername) {
       throw new BadRequestException(
-        'Ma so thue da duoc su dung lam tai khoan dang nhap',
+        'Mã số thuế đã được sử dụng làm tài khoản đăng nhập',
       );
     }
 
@@ -394,7 +550,7 @@ export class BusinessService {
 
     if (existedEmail) {
       throw new BadRequestException(
-        'Email da duoc su dung boi tai khoan khac',
+        'Email đã được sử dụng bởi tài khoản khác',
       );
     }
   }
@@ -410,7 +566,7 @@ export class BusinessService {
     });
 
     if (!userRole) {
-      throw new BadRequestException('Chua cau hinh vai tro USER');
+      throw new BadRequestException('Chưa cấu hình vai trò USER');
     }
 
     const email =
@@ -451,7 +607,7 @@ export class BusinessService {
 
     if ((requireAll || taxCode) && taxCode && !/^\d{10}(-\d{3})?$/.test(taxCode)) {
       throw new BadRequestException(
-        'Ma so thue phai gom 10 so hoac dang 10 so-3 so',
+        'Mã số thuế phải gồm 10 số hoặc dạng 10 số-3 số',
       );
     }
 
@@ -461,7 +617,7 @@ export class BusinessService {
       !/^\d{4}$/.test(industryCode)
     ) {
       throw new BadRequestException(
-        'Ma nganh nghe kinh doanh cap 4 phai gom 4 chu so',
+        'Mã ngành nghề kinh doanh cấp 4 phải gồm 4 chữ số',
       );
     }
 
@@ -469,12 +625,12 @@ export class BusinessService {
       const date = this.toDateValue(licenseIssueDate);
 
       if (date && date.getTime() > Date.now()) {
-        throw new BadRequestException('Ngay cap GPKD khong duoc lon hon hien tai');
+        throw new BadRequestException('Ngày cấp GPKD không được lớn hơn hiện tại');
       }
     }
 
-    this.validatePhone(payload.agencyPhone, 'So dien thoai co quan');
-    this.validatePhone(payload.representativePhone, 'SDT lien he nguoi dung dau');
+    this.validatePhone(payload.agencyPhone, 'Số điện thoại cơ quan');
+    this.validatePhone(payload.representativePhone, 'SĐT liên hệ người đứng đầu');
   }
 
   private validatePhone(value: string | undefined, label: string) {
@@ -485,7 +641,7 @@ export class BusinessService {
     }
 
     if (!/^(0|\+84)(\d{9,10})$/.test(phone.replace(/\s/g, ''))) {
-      throw new BadRequestException(`${label} khong hop le`);
+      throw new BadRequestException(`${label} không hợp lệ`);
     }
   }
 
@@ -569,7 +725,7 @@ export class BusinessService {
     const trimmedValue = value.trim();
 
     if (!trimmedValue) {
-      throw new BadRequestException('Du lieu bat buoc khong duoc de trong');
+      throw new BadRequestException('Dữ liệu bắt buộc không được để trống');
     }
 
     return trimmedValue;
@@ -597,7 +753,7 @@ export class BusinessService {
     const parsedDate = new Date(dateValue);
 
     if (Number.isNaN(parsedDate.getTime())) {
-      throw new BadRequestException('Ngay cap GPKD khong hop le');
+      throw new BadRequestException('Ngày cấp GPKD không hợp lệ');
     }
 
     return parsedDate;
@@ -649,7 +805,7 @@ export class BusinessService {
       representativeName: business.representativeName,
       representativePhone: business.representativePhone,
       isActive: business.isActive,
-      statusLabel: business.isActive ? 'Dang hoat dong' : 'Ngung hoat dong',
+      statusLabel: business.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động',
       attachments:
         business.attachments?.map((attachment) => ({
           id: attachment.id,

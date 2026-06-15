@@ -23,15 +23,15 @@ export class CloudinaryService {
     folder = 'users',
   ): Promise<UploadApiResponse> {
     if (!file) {
-      throw new BadRequestException('Vui long chon anh');
+      throw new BadRequestException('Vui lòng chọn ảnh');
     }
 
     if (!file.mimetype.startsWith('image/')) {
-      throw new BadRequestException('File upload phai la anh');
+      throw new BadRequestException('File upload phải là ảnh');
     }
 
     if (!file.buffer) {
-      throw new BadRequestException('Khong doc duoc du lieu anh upload');
+      throw new BadRequestException('Không đọc được dữ liệu ảnh upload');
     }
 
     return new Promise((resolve, reject) => {
@@ -42,14 +42,14 @@ export class CloudinaryService {
         },
         (error, result) => {
           if (error) {
-            reject(new InternalServerErrorException('Upload anh that bai'));
+            reject(new InternalServerErrorException('Upload ảnh thất bại'));
             return;
           }
 
           if (!result) {
             reject(
               new InternalServerErrorException(
-                'Khong nhan duoc ket qua upload',
+                'Không nhận được kết quả upload',
               ),
             );
             return;
@@ -68,11 +68,11 @@ export class CloudinaryService {
     folder = 'businesses',
   ): Promise<UploadApiResponse> {
     if (!file) {
-      throw new BadRequestException('Vui long chon file');
+      throw new BadRequestException('Vui lòng chọn file');
     }
 
     if (!file.buffer) {
-      throw new BadRequestException('Khong doc duoc du lieu file upload');
+      throw new BadRequestException('Không đọc được dữ liệu file upload');
     }
 
     return new Promise((resolve, reject) => {
@@ -85,14 +85,14 @@ export class CloudinaryService {
         },
         (error, result) => {
           if (error) {
-            reject(new InternalServerErrorException('Upload file that bai'));
+            reject(new InternalServerErrorException('Upload file thất bại'));
             return;
           }
 
           if (!result) {
             reject(
               new InternalServerErrorException(
-                'Khong nhan duoc ket qua upload file',
+                'Không nhận được kết quả upload file',
               ),
             );
             return;

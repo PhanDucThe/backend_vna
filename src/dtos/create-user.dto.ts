@@ -10,24 +10,24 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'user01' })
-  @IsNotEmpty({ message: 'Ten dang nhap khong duoc de trong' })
+  @IsNotEmpty({ message: 'Tên đăng nhập không được để trống' })
   @IsString()
   username!: string;
 
   @ApiProperty({ example: '123456', minLength: 6 })
-  @IsNotEmpty({ message: 'Mat khau khong duoc de trong' })
+  @IsNotEmpty({ message: 'Mật khẩu không được để trống' })
   @IsString()
-  @MinLength(6, { message: 'Mat khau phai co it nhat 6 ky tu' })
+  @MinLength(6, { message: 'Mật khẩu phải có ít nhất 6 ký tự' })
   password!: string;
 
   @ApiProperty({ example: 'Nguyen Van A' })
-  @IsNotEmpty({ message: 'Ho va ten khong duoc de trong' })
+  @IsNotEmpty({ message: 'Họ và tên không được để trống' })
   @IsString()
   fullName!: string;
 
   @ApiProperty({ example: 'user01@gmail.com' })
-  @IsNotEmpty({ message: 'Email khong duoc de trong' })
-  @IsEmail({}, { message: 'Email khong hop le' })
+  @IsNotEmpty({ message: 'Email không được để trống' })
+  @IsEmail({}, { message: 'Email không hợp lệ' })
   email!: string;
 
   @ApiPropertyOptional({ example: 'Nam' })

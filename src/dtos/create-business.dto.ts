@@ -24,7 +24,7 @@ export class CreateBusinessDto {
     example: 'Cong ty co phan cong nghe quoc te VNA',
     description: 'Ten doanh nghiep theo giay dang ky kinh doanh',
   })
-  @IsNotEmpty({ message: 'Ten doanh nghiep khong duoc de trong' })
+  @IsNotEmpty({ message: 'Tên doanh nghiệp không được để trống' })
   @IsString()
   businessName!: string;
 
@@ -41,9 +41,9 @@ export class CreateBusinessDto {
     description:
       'Ma so thue Viet Nam: 10 chu so, hoac ma don vi phu thuoc dang 10 so-3 so. Vi du: 0100109106-001',
   })
-  @IsNotEmpty({ message: 'Ma so thue khong duoc de trong' })
+  @IsNotEmpty({ message: 'Mã số thuế không được để trống' })
   @Matches(/^\d{10}(-\d{3})?$/, {
-    message: 'Ma so thue phai gom 10 so hoac dang 10 so-3 so',
+    message: 'Mã số thuế phải gồm 10 số hoặc dạng 10 số-3 số',
   })
   taxCode!: string;
 
@@ -51,24 +51,24 @@ export class CreateBusinessDto {
     example: 'Cong ty TNHH 1 thanh vien',
     enum: BUSINESS_TYPES,
   })
-  @IsNotEmpty({ message: 'Loai hinh kinh doanh khong duoc de trong' })
-  @IsIn(BUSINESS_TYPES, { message: 'Loai hinh kinh doanh khong hop le' })
+  @IsNotEmpty({ message: 'Loại hình kinh doanh không được để trống' })
+  @IsIn(BUSINESS_TYPES, { message: 'Loại hình kinh doanh không hợp lệ' })
   businessType!: string;
 
   @ApiProperty({
     example: '4669',
     description: 'Ma nganh nghe kinh doanh cap 4 theo VSIC, gom dung 4 chu so',
   })
-  @IsNotEmpty({ message: 'Ma nganh nghe cap 4 khong duoc de trong' })
+  @IsNotEmpty({ message: 'Mã ngành nghề cấp 4 không được để trống' })
   @Matches(/^\d{4}$/, {
-    message: 'Ma nganh nghe kinh doanh cap 4 phai gom 4 chu so',
+    message: 'Mã ngành nghề kinh doanh cấp 4 phải gồm 4 chữ số',
   })
   industryCode!: string;
 
   @ApiProperty({
     example: 'Ban buon chuyen doanh khac chua duoc phan vao dau',
   })
-  @IsNotEmpty({ message: 'Ten nganh nghe kinh doanh chinh khong duoc de trong' })
+  @IsNotEmpty({ message: 'Tên ngành nghề kinh doanh chính không được để trống' })
   @IsString()
   industryName!: string;
 
@@ -78,12 +78,12 @@ export class CreateBusinessDto {
   licenseIssueDate?: string;
 
   @ApiProperty({ example: 'Thanh pho Ho Chi Minh' })
-  @IsNotEmpty({ message: 'Tinh/Thanh pho DKKD khong duoc de trong' })
+  @IsNotEmpty({ message: 'Tỉnh/Thành phố ĐKKD không được để trống' })
   @IsString()
   provinceCity!: string;
 
   @ApiProperty({ example: 'Phuong Hiep Binh Phuoc' })
-  @IsNotEmpty({ message: 'Phuong/Xa DKKD khong duoc de trong' })
+  @IsNotEmpty({ message: 'Phường/Xã ĐKKD không được để trống' })
   @IsString()
   wardCommune!: string;
 
@@ -94,7 +94,7 @@ export class CreateBusinessDto {
 
   @ApiPropertyOptional({ example: 'vna@gmail.com' })
   @IsOptional()
-  @IsEmail({}, { message: 'Email khong hop le' })
+  @IsEmail({}, { message: 'Email không hợp lệ' })
   email?: string;
 
   @ApiPropertyOptional({ example: '02812345678' })

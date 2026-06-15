@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -59,7 +60,7 @@ export class UserController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Danh sach nguoi dung',
-    description: 'Chi ADMIN duoc xem. Tai khoan ADMIN khong nam trong danh sach.',
+    description: 'Chỉ ADMIN được xem. Tài khoản ADMIN không nằm trong danh sách.',
   })
   @ApiOkResponse({
     description: 'Danh sach user kem phan trang',
@@ -111,7 +112,7 @@ export class UserController {
   @Roles('ADMIN')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Chi tiet nguoi dung cho man hinh quan ly' })
-  @ApiResponse({ status: 404, description: 'Khong tim thay user hoac user la ADMIN' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy người dùng hoặc người dùng là ADMIN' })
   @ApiOkResponse({
     description: 'Chi tiet user de do vao form cap nhat',
     schema: {
@@ -138,9 +139,9 @@ export class UserController {
   @Roles('ADMIN')
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Them moi nguoi dung',
+    summary: 'Thêm mới người dùng',
     description:
-      'Chi ADMIN duoc tao user thuong. Khong cho gan role ADMIN tai man quan ly nguoi dung. Dung multipart/form-data neu can upload avatar.',
+      'Chỉ ADMIN được tạo người dùng thường. Không cho gán role ADMIN tại màn quản lý người dùng. Dùng multipart/form-data nếu cần upload avatar.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -165,7 +166,7 @@ export class UserController {
     },
   })
   @ApiCreatedResponse({
-    description: 'User vua tao',
+    description: 'Người dùng vừa tạo',
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponseDto) },
@@ -207,9 +208,9 @@ export class UserController {
   @Roles('ADMIN')
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Cap nhat nguoi dung',
+    summary: 'Cập nhật người dùng',
     description:
-      'Dung multipart/form-data neu can upload avatar. Field file phai ten la avatar.',
+      'Dùng multipart/form-data nếu cần upload avatar. Field file phải tên là avatar.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -234,7 +235,7 @@ export class UserController {
     },
   })
   @ApiOkResponse({
-    description: 'User sau khi cap nhat',
+    description: 'Người dùng sau khi cập nhật',
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponseDto) },
@@ -270,5 +271,40 @@ export class UserController {
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.userService.updateUser(id, updateUserDto, currentUser, file);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Xóa người dùng',
+    description:
+      'Chỉ ADMIN được xóa tài khoản người dùng thường. Không cho xóa tài khoản ADMIN.',
+  })
+  @ApiOkResponse({
+    description: 'Xóa người dùng thành công',
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiSuccessResponseDto) },
+        {
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                id: { type: 'number', example: 2 },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  deleteUser(
+    @Param('id', ParseIntPipe) id: number,
+    @currentUserDecorator.CurrentUser()
+    currentUser: currentUserDecorator.CurrentUserData,
+  ) {
+    return this.userService.deleteUser(id, currentUser);
   }
 }

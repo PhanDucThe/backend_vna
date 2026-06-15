@@ -108,7 +108,7 @@ export class UserService {
     const totalPages = Math.ceil(totalItems / limit);
 
     return {
-      message: 'Lay danh sach nguoi dung thanh cong',
+      message: 'Lấy danh sách người dùng thành công',
       data: {
         items: users.map((user) => this.mapUserListItem(user)),
         meta: {
@@ -136,13 +136,13 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException('Khong tim thay nguoi dung');
+      throw new NotFoundException('Không tìm thấy người dùng');
     }
 
     const roles = user.userRoles.map((userRole) => userRole.role.code);
 
     return {
-      message: 'Lay thong tin nguoi dung thanh cong',
+      message: 'Lấy thông tin người dùng thành công',
       data: {
         id: user.id,
         username: user.username,
@@ -167,7 +167,7 @@ export class UserService {
     const user = await this.findManageableUser(id, currentUser);
 
     return {
-      message: 'Lay chi tiet nguoi dung thanh cong',
+      message: 'Lấy chi tiết người dùng thành công',
       data: this.mapUserDetail(user),
     };
   }
@@ -178,7 +178,7 @@ export class UserService {
     file?: Express.Multer.File,
   ) {
     if (!currentUser.roles.includes('ADMIN')) {
-      throw new BadRequestException('Ban khong co quyen tao nguoi dung');
+      throw new BadRequestException('Bạn không có quyền tạo người dùng');
     }
 
     const username = this.toRequiredString(createUserDto.username);
@@ -234,7 +234,7 @@ export class UserService {
     const createdUser = await this.findManageableUser(savedUser.id, currentUser);
 
     return {
-      message: 'Tao nguoi dung thanh cong',
+      message: 'Tạo người dùng thành công',
       data: this.mapUserDetail(createdUser),
     };
   }
@@ -317,8 +317,21 @@ export class UserService {
     const updatedUser = await this.findManageableUser(id, currentUser);
 
     return {
-      message: 'Cap nhat nguoi dung thanh cong',
+      message: 'Cập nhật người dùng thành công',
       data: this.mapUserDetail(updatedUser),
+    };
+  }
+
+  async deleteUser(id: number, currentUser: CurrentUserData) {
+    const user = await this.findManageableUser(id, currentUser);
+
+    await this.userRepository.remove(user);
+
+    return {
+      message: 'Xóa người dùng thành công',
+      data: {
+        id,
+      },
     };
   }
 
@@ -340,7 +353,7 @@ export class UserService {
       .getOne();
 
     if (existedUsername) {
-      throw new BadRequestException('Ten dang nhap da ton tai');
+      throw new BadRequestException('Tên đăng nhập đã tồn tại');
     }
   }
 
@@ -362,13 +375,13 @@ export class UserService {
       .getOne();
 
     if (existedEmail) {
-      throw new BadRequestException('Email da ton tai');
+      throw new BadRequestException('Email đã tồn tại');
     }
   }
 
   private async findManageableUser(id: number, currentUser: CurrentUserData) {
     if (!currentUser.roles.includes('ADMIN')) {
-      throw new BadRequestException('Ban khong co quyen quan ly nguoi dung');
+      throw new BadRequestException('Bạn không có quyền quản lý người dùng');
     }
 
     const user = await this.userRepository.findOne({
@@ -381,7 +394,7 @@ export class UserService {
     });
 
     if (!user || this.isAdminUser(user)) {
-      throw new NotFoundException('Khong tim thay nguoi dung');
+      throw new NotFoundException('Không tìm thấy người dùng');
     }
 
     return user;
@@ -402,7 +415,7 @@ export class UserService {
       const parsedRoleId = Number(roleId);
 
       if (!Number.isInteger(parsedRoleId) || parsedRoleId < 1) {
-        throw new BadRequestException('Vai tro khong hop le');
+        throw new BadRequestException('Vai trò không hợp lệ');
       }
 
       queryBuilder.where('role.id = :roleId', { roleId: parsedRoleId });
@@ -418,12 +431,12 @@ export class UserService {
     const requestedRole = await queryBuilder.getOne();
 
     if (!requestedRole) {
-      throw new BadRequestException('Vai tro khong hop le');
+      throw new BadRequestException('Vai trò không hợp lệ');
     }
 
     if (requestedRole.code === 'ADMIN') {
       throw new BadRequestException(
-        'Khong the gan vai tro quan tri vien tai man quan ly nguoi dung',
+        'Không thể gán vai trò quản trị viên tại màn quản lý người dùng',
       );
     }
 
@@ -438,7 +451,7 @@ export class UserService {
     });
 
     if (!userRole) {
-      throw new BadRequestException('Chua cau hinh vai tro USER');
+      throw new BadRequestException('Chưa cấu hình vai trò USER');
     }
 
     return userRole;
@@ -480,7 +493,7 @@ export class UserService {
     const trimmedValue = value?.trim();
 
     if (!trimmedValue) {
-      throw new BadRequestException('Du lieu bat buoc khong duoc de trong');
+      throw new BadRequestException('Dữ liệu bắt buộc không được để trống');
     }
 
     return trimmedValue;
@@ -526,7 +539,7 @@ export class UserService {
       avatar: user.avatar,
       position: user.position,
       isActive: user.isActive,
-      statusLabel: user.isActive ? 'Dang hoat dong' : 'Da khoa',
+      statusLabel: user.isActive ? 'Đang hoạt động' : 'Đã khóa',
       roles,
       roleCodes,
       roleNames,
@@ -553,7 +566,7 @@ export class UserService {
       wardCommune: user.wardCommune,
       address: user.address,
       isActive: user.isActive,
-      statusLabel: user.isActive ? 'Dang hoat dong' : 'Da khoa',
+      statusLabel: user.isActive ? 'Đang hoạt động' : 'Đã khóa',
       hasPassword: Boolean(user.password),
       roleId: primaryRole?.id ?? null,
       roleCode: primaryRole?.code ?? null,
