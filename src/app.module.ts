@@ -6,11 +6,15 @@ import { PassportModule } from '@nestjs/passport';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import { UserRole } from './entities/user-role.entity';
+import { BusinessAttachment } from './entities/business-attachment.entity';
+import { Business } from './entities/business.entity';
 import { RoleSeedService } from './services/role-seed.service';
 import { UserSeedService } from './services/user-seed.service';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './controllers/auth.controller';
 import { AuthService } from './services/auth.service';
+import { BusinessController } from './controllers/business.controller';
+import { BusinessService } from './services/business.service';
 import { UserController } from './controllers/user.controller';
 import { UserService } from './services/user.service';
 import { CloudinaryService } from './services/cloudinary.service';
@@ -39,13 +43,29 @@ import { JwtStrategy } from './strategies/jwt.strategy';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
 
-        entities: [User, Role, UserRole, RefreshToken, EmailOtp],
+        entities: [
+          User,
+          Role,
+          UserRole,
+          RefreshToken,
+          EmailOtp,
+          Business,
+          BusinessAttachment,
+        ],
 
         synchronize: true,
       }),
     }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    TypeOrmModule.forFeature([User, Role, UserRole, RefreshToken, EmailOtp]),
+    TypeOrmModule.forFeature([
+      User,
+      Role,
+      UserRole,
+      RefreshToken,
+      EmailOtp,
+      Business,
+      BusinessAttachment,
+    ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -66,10 +86,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       },
     }),
   ],
-  controllers: [AuthController, UserController],
+  controllers: [AuthController, UserController, BusinessController],
   providers: [
     AuthService,
     UserService,
+    BusinessService,
     CloudinaryService,
     MailService,
     JwtAuthGuard,

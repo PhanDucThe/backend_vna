@@ -14,7 +14,7 @@ import { Role } from './role.entity';
 @Unique(['user', 'role'])
 export class UserRole {
   @PrimaryGeneratedColumn('increment')
-  id: number;
+  id!: number;
 
   @ManyToOne(() => User, (user) => user.userRoles, {
     onDelete: 'CASCADE',
@@ -22,7 +22,7 @@ export class UserRole {
   @JoinColumn({
     name: 'user_id',
   })
-  user: User;
+  user!: User;
 
   @ManyToOne(() => Role, (role) => role.userRoles, {
     onDelete: 'CASCADE',
@@ -30,10 +30,10 @@ export class UserRole {
   @JoinColumn({
     name: 'role_id',
   })
-  role: Role;
+  role!: Role;
 
   @CreateDateColumn({
     name: 'created_at',
   })
-  createdAt: Date;
+  createdAt!: Date;
 }

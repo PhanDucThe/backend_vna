@@ -12,39 +12,39 @@ import { User } from './user.entity';
 @Entity('refresh_tokens')
 export class RefreshToken {
   @PrimaryGeneratedColumn('increment')
-  id: number;
+  id!: number;
 
   @Column({
     name: 'token_hash',
     type: 'text',
   })
-  tokenHash: string;
+  tokenHash!: string;
 
   @Column({
     name: 'expires_at',
     type: 'timestamp',
   })
-  expiresAt: Date;
+  expiresAt!: Date;
 
   @Column({
     name: 'is_revoked',
     default: false,
   })
-  isRevoked: boolean;
+  isRevoked!: boolean;
 
   @Column({
     name: 'user_agent',
     type: 'text',
     nullable: true,
   })
-  userAgent: string;
+  userAgent!: string;
 
   @Column({
     name: 'ip_address',
     length: 100,
     nullable: true,
   })
-  ipAddress: string;
+  ipAddress!: string;
 
   @ManyToOne(() => User, {
     onDelete: 'CASCADE',
@@ -52,10 +52,10 @@ export class RefreshToken {
   @JoinColumn({
     name: 'user_id',
   })
-  user: User;
+  user!: User;
 
   @CreateDateColumn({
     name: 'created_at',
   })
-  createdAt: Date;
+  createdAt!: Date;
 }

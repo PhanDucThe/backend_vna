@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from '../libs/shared/interceptors/response.interceptor';
@@ -31,6 +32,38 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ResponseInterceptor());
 
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('VNA Backend API')
+    .setDescription(
+      [
+        'Tai lieu API cho he thong VNA.',
+        'Tat ca response thanh cong duoc boc trong format: success, statusCode, message, data, timestamp, path.',
+        'Cac API quan tri can dang nhap bang tai khoan ADMIN va truyen Bearer token.',
+      ].join('\n'),
+    )
+    .setVersion('1.0.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Nhap accessToken nhan duoc tu API dang nhap.',
+      },
+      'access-token',
+    )
+    .addTag('Auth', 'Dang nhap, quen mat khau, doi mat khau, doi Gmail')
+    .addTag('Users', 'Quan ly nguoi dung cho ADMIN')
+    .addTag('Businesses', 'Quan ly doanh nghiep cho ADMIN')
+    .build();
+
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, swaggerDocument, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+    customSiteTitle: 'VNA Backend API Docs',
+  });
 
   await app.listen(process.env.APP_PORT ?? 3000);
 }

@@ -62,4 +62,47 @@ export class CloudinaryService {
       Readable.from(file.buffer).pipe(uploadStream);
     });
   }
+
+  async uploadFile(
+    file: Express.Multer.File,
+    folder = 'businesses',
+  ): Promise<UploadApiResponse> {
+    if (!file) {
+      throw new BadRequestException('Vui long chon file');
+    }
+
+    if (!file.buffer) {
+      throw new BadRequestException('Khong doc duoc du lieu file upload');
+    }
+
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          resource_type: 'auto',
+          use_filename: true,
+          unique_filename: true,
+        },
+        (error, result) => {
+          if (error) {
+            reject(new InternalServerErrorException('Upload file that bai'));
+            return;
+          }
+
+          if (!result) {
+            reject(
+              new InternalServerErrorException(
+                'Khong nhan duoc ket qua upload file',
+              ),
+            );
+            return;
+          }
+
+          resolve(result);
+        },
+      );
+
+      Readable.from(file.buffer).pipe(uploadStream);
+    });
+  }
 }

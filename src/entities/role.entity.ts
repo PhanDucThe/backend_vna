@@ -12,29 +12,29 @@ import { UserRole } from './user-role.entity';
 @Entity('roles')
 export class Role {
   @PrimaryGeneratedColumn('increment')
-  id: number;
+  id!: number;
 
   @Column({
     length: 50,
     unique: true,
   })
-  code: string;
+  code!: string;
 
   @Column({
     length: 100,
   })
-  name: string;
+  name!: string;
 
   @OneToMany(() => UserRole, (userRole) => userRole.role)
-  userRoles: UserRole[];
+  userRoles!: UserRole[];
 
   @CreateDateColumn({
     name: 'created_at',
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({
     name: 'updated_at',
   })
-  updatedAt: Date;
+  updatedAt!: Date;
 }

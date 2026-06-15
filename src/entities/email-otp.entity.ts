@@ -9,19 +9,19 @@ import {
 @Entity('email_otps')
 export class EmailOtp {
   @PrimaryGeneratedColumn('increment')
-  id: number;
+  id!: number;
 
   @Column({
     length: 150,
   })
-  email: string;
+  email!: string;
 
   @Column({
     name: 'user_id',
     type: 'integer',
     nullable: true,
   })
-  userId: number | null;
+  userId!: number | null;
 
   @Column({
     name: 'pending_email',
@@ -29,50 +29,50 @@ export class EmailOtp {
     length: 150,
     nullable: true,
   })
-  pendingEmail: string | null;
+  pendingEmail!: string | null;
 
   @Column({
     name: 'otp_hash',
     type: 'text',
   })
-  otpHash: string;
+  otpHash!: string;
 
   @Column({
     length: 50,
   })
-  purpose: string;
+  purpose!: string;
 
   @Column({
     name: 'is_used',
     default: false,
   })
-  isUsed: boolean;
+  isUsed!: boolean;
 
   @Column({
     name: 'verified_at',
     type: 'timestamp',
     nullable: true,
   })
-  verifiedAt: Date | null;
+  verifiedAt!: Date | null;
 
   @Column({
     default: 0,
   })
-  attempts: number;
+  attempts!: number;
 
   @Column({
     name: 'expires_at',
     type: 'timestamp',
   })
-  expiresAt: Date;
+  expiresAt!: Date;
 
   @CreateDateColumn({
     name: 'created_at',
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({
     name: 'updated_at',
   })
-  updatedAt: Date;
+  updatedAt!: Date;
 }
