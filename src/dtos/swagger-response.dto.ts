@@ -245,11 +245,36 @@ export class BusinessResponseDto {
   @ApiProperty({ type: [BusinessAttachmentResponseDto] })
   attachments!: BusinessAttachmentResponseDto[];
 
+  @ApiProperty({ example: 12, nullable: true })
+  accountUserId!: number | null;
+
+  @ApiProperty({ example: '0312345678' })
+  accountUsername!: string;
+
   @ApiProperty({ example: '2026-06-15T04:00:00.000Z' })
   createdAt!: string;
 
   @ApiProperty({ example: '2026-06-15T04:00:00.000Z' })
   updatedAt!: string;
+}
+
+export class BusinessAccountInfoResponseDto {
+  @ApiProperty({
+    example: '0312345678',
+    description: 'Tai khoan dang nhap mac dinh cua doanh nghiep, bang ma so thue',
+  })
+  username!: string;
+
+  @ApiProperty({
+    example: '12345678',
+    description: 'Mat khau mac dinh chi tra ve khi tao moi doanh nghiep',
+  })
+  password!: string;
+}
+
+export class CreatedBusinessResponseDto extends BusinessResponseDto {
+  @ApiProperty({ type: BusinessAccountInfoResponseDto })
+  accountInfo!: BusinessAccountInfoResponseDto;
 }
 
 export class BusinessListResponseDto {

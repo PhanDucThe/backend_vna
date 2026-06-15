@@ -39,6 +39,7 @@ import {
   ApiSuccessResponseDto,
   BusinessListResponseDto,
   BusinessResponseDto,
+  CreatedBusinessResponseDto,
 } from '../dtos/swagger-response.dto';
 
 @Controller('businesses')
@@ -51,6 +52,7 @@ import {
   ApiErrorResponseDto,
   BusinessListResponseDto,
   BusinessResponseDto,
+  CreatedBusinessResponseDto,
 )
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}
@@ -116,7 +118,7 @@ export class BusinessController {
   @ApiOperation({
     summary: 'Them moi doanh nghiep',
     description:
-      'Nhan multipart/form-data de tao doanh nghiep va upload toi da 10 file dinh kem. Ma so thue: 10 so hoac 10 so-3 so. Ma nganh nghe cap 4: dung 4 chu so.',
+      'Nhan multipart/form-data de tao doanh nghiep va upload toi da 10 file dinh kem. Ma so thue: 10 so hoac 10 so-3 so. Ma nganh nghe cap 4: dung 4 chu so. Khi tao thanh cong, he thong tu tao tai khoan doanh nghiep voi username la ma so thue va password mac dinh 12345678.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -197,13 +199,13 @@ export class BusinessController {
     },
   })
   @ApiOkResponse({
-    description: 'Doanh nghiep vua tao',
+    description: 'Doanh nghiep vua tao kem thong tin tai khoan mac dinh',
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponseDto) },
         {
           properties: {
-            data: { $ref: getSchemaPath(BusinessResponseDto) },
+            data: { $ref: getSchemaPath(CreatedBusinessResponseDto) },
           },
         },
       ],

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 
 import { CreateBusinessDto } from '../dtos/create-business.dto';
@@ -13,7 +14,12 @@ import { ListBusinessesQueryDto } from '../dtos/list-businesses-query.dto';
 import { UpdateBusinessDto } from '../dtos/update-business.dto';
 import { BusinessAttachment } from '../entities/business-attachment.entity';
 import { Business } from '../entities/business.entity';
+import { Role } from '../entities/role.entity';
+import { User } from '../entities/user.entity';
+import { UserRole } from '../entities/user-role.entity';
 import { CloudinaryService } from './cloudinary.service';
+
+const DEFAULT_BUSINESS_ACCOUNT_PASSWORD = '12345678';
 
 @Injectable()
 export class BusinessService {
@@ -23,6 +29,15 @@ export class BusinessService {
 
     @InjectRepository(BusinessAttachment)
     private readonly attachmentRepository: Repository<BusinessAttachment>,
+
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>,
+
+    @InjectRepository(UserRole)
+    private readonly userRoleRepository: Repository<UserRole>,
 
     private readonly cloudinaryService: CloudinaryService,
 
@@ -151,7 +166,9 @@ export class BusinessService {
     const taxCode = this.normalizeTaxCode(createBusinessDto.taxCode);
 
     await this.validateUniqueTaxCode(taxCode);
+    await this.validateUniqueBusinessAccount(taxCode, createBusinessDto.email);
     this.validateBusinessPayload(createBusinessDto);
+    const accountUser = await this.createBusinessAccount(createBusinessDto, taxCode);
 
     const business = this.businessRepository.create({
       businessName: this.toRequiredValue(createBusinessDto.businessName),
@@ -182,6 +199,7 @@ export class BusinessService {
         createBusinessDto.representativePhone,
       ),
       isActive: this.toBoolean(createBusinessDto.isActive, true),
+      accountUser,
     });
 
     const savedBusiness = await this.businessRepository.save(business);
@@ -191,7 +209,13 @@ export class BusinessService {
 
     return {
       message: 'Them doanh nghiep thanh cong',
-      data: this.mapBusiness(createdBusiness),
+      data: {
+        ...this.mapBusiness(createdBusiness),
+        accountInfo: {
+          username: taxCode,
+          password: DEFAULT_BUSINESS_ACCOUNT_PASSWORD,
+        },
+      },
     };
   }
 
@@ -311,6 +335,7 @@ export class BusinessService {
       where: { id },
       relations: {
         attachments: true,
+        accountUser: true,
       },
       order: {
         attachments: {
@@ -340,6 +365,80 @@ export class BusinessService {
     if (existedBusiness) {
       throw new BadRequestException('Ma so thue da ton tai');
     }
+  }
+
+  private async validateUniqueBusinessAccount(taxCode: string, email?: string) {
+    const existedUsername = await this.userRepository.findOne({
+      where: {
+        username: taxCode,
+      },
+    });
+
+    if (existedUsername) {
+      throw new BadRequestException(
+        'Ma so thue da duoc su dung lam tai khoan dang nhap',
+      );
+    }
+
+    const normalizedEmail = this.toTrimmedValue(email);
+
+    if (!normalizedEmail) {
+      return;
+    }
+
+    const existedEmail = await this.userRepository.findOne({
+      where: {
+        email: normalizedEmail,
+      },
+    });
+
+    if (existedEmail) {
+      throw new BadRequestException(
+        'Email da duoc su dung boi tai khoan khac',
+      );
+    }
+  }
+
+  private async createBusinessAccount(
+    createBusinessDto: CreateBusinessDto,
+    taxCode: string,
+  ) {
+    const userRole = await this.roleRepository.findOne({
+      where: {
+        code: 'USER',
+      },
+    });
+
+    if (!userRole) {
+      throw new BadRequestException('Chua cau hinh vai tro USER');
+    }
+
+    const email =
+      this.toTrimmedValue(createBusinessDto.email) ||
+      `${taxCode}@business.local`;
+
+    const accountUser = await this.userRepository.save(
+      this.userRepository.create({
+        username: taxCode,
+        password: await bcrypt.hash(DEFAULT_BUSINESS_ACCOUNT_PASSWORD, 10),
+        fullName: this.toRequiredValue(createBusinessDto.businessName),
+        email,
+        position: 'Doanh nghiep',
+        provinceCity: this.toOptionalValue(createBusinessDto.provinceCity),
+        wardCommune: this.toOptionalValue(createBusinessDto.wardCommune),
+        address: this.toOptionalValue(createBusinessDto.address),
+        isActive: true,
+      }),
+    );
+
+    await this.userRoleRepository.save(
+      this.userRoleRepository.create({
+        user: accountUser,
+        role: userRole,
+      }),
+    );
+
+    return accountUser;
   }
 
   private validateBusinessPayload(
@@ -561,6 +660,8 @@ export class BusinessService {
           size: attachment.size,
           createdAt: attachment.createdAt,
         })) ?? [],
+      accountUserId: business.accountUser?.id ?? null,
+      accountUsername: business.accountUser?.username ?? business.taxCode,
       createdAt: business.createdAt,
       updatedAt: business.updatedAt,
     };

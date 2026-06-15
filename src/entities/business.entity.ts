@@ -2,12 +2,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  OneToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 import { BusinessAttachment } from './business-attachment.entity';
+import { User } from './user.entity';
 
 @Entity('businesses')
 export class Business {
@@ -147,6 +150,15 @@ export class Business {
 
   @OneToMany(() => BusinessAttachment, (attachment) => attachment.business)
   attachments!: BusinessAttachment[];
+
+  @OneToOne(() => User, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({
+    name: 'account_user_id',
+  })
+  accountUser!: User | null;
 
   @Column({
     default: true,
