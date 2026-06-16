@@ -45,7 +45,7 @@ import {
 @Controller('businesses')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
-@ApiTags('Businesses')
+@ApiTags('Doanh nghiệp')
 @ApiBearerAuth('access-token')
 @ApiExtraModels(
   ApiSuccessResponseDto,
@@ -59,12 +59,12 @@ export class BusinessController {
 
   @Get()
   @ApiOperation({
-    summary: 'Danh sach doanh nghiep',
+    summary: 'Danh sách doanh nghiệp',
     description:
-      'Ho tro loc theo ten doanh nghiep, ma so thue, loai hinh, nganh nghe cap 4, phuong/xa va trang thai.',
+      'Hỗ trợ lọc theo tên doanh nghiệp, mã số thuế, loại hình, ngành nghề cấp 4, phường/xã và trạng thái.',
   })
   @ApiOkResponse({
-    description: 'Danh sach doanh nghiep kem meta phan trang',
+    description: 'Danh sách doanh nghiệp kèm thông tin phân trang',
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponseDto) },
@@ -82,12 +82,12 @@ export class BusinessController {
 
   @Get('options')
   @ApiOperation({
-    summary: 'Danh muc/rang buoc cho form doanh nghiep',
+    summary: 'Danh mục/ràng buộc cho form doanh nghiệp',
     description:
-      'Tra ve danh sach loai hinh kinh doanh hop le, quy tac ma so thue va quy tac ma nganh nghe cap 4.',
+      'Trả về danh sách loại hình kinh doanh hợp lệ, quy tắc mã số thuế và quy tắc mã ngành nghề cấp 4.',
   })
   @ApiOkResponse({
-    description: 'Options cho form doanh nghiep',
+    description: 'Tùy chọn cho form doanh nghiệp',
     type: ApiSuccessResponseDto,
   })
   getBusinessOptions() {
@@ -95,10 +95,10 @@ export class BusinessController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Chi tiet doanh nghiep' })
-  @ApiResponse({ status: 404, description: 'Khong tim thay doanh nghiep' })
+  @ApiOperation({ summary: 'Chi tiết doanh nghiệp' })
+  @ApiResponse({ status: 404, description: 'Không tìm thấy doanh nghiệp' })
   @ApiOkResponse({
-    description: 'Chi tiet doanh nghiep de do vao form',
+    description: 'Chi tiết doanh nghiệp để đổ dữ liệu vào form',
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponseDto) },
@@ -116,9 +116,9 @@ export class BusinessController {
 
   @Post()
   @ApiOperation({
-    summary: 'Them moi doanh nghiep',
+    summary: 'Thêm mới doanh nghiệp',
     description:
-      'Nhan multipart/form-data de tao doanh nghiep va upload toi da 10 file dinh kem. Ma so thue: 10 so hoac 10 so-3 so. Ma nganh nghe cap 4: dung 4 chu so. Khi tao thanh cong, he thong tu tao tai khoan doanh nghiep voi username la ma so thue va password mac dinh 12345678.',
+      'Nhận multipart/form-data để tạo doanh nghiệp và upload tối đa 10 file đính kèm. Mã số thuế: 10 chữ số hoặc 10 chữ số-3 chữ số. Mã ngành nghề cấp 4: đúng 4 chữ số. Khi tạo thành công, hệ thống tự tạo tài khoản doanh nghiệp với username là mã số thuế và password mặc định 12345678.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -136,7 +136,7 @@ export class BusinessController {
       properties: {
         businessName: {
           type: 'string',
-          example: 'Cong ty co phan cong nghe quoc te VNA',
+          example: 'Công ty cổ phần công nghệ quốc tế VNA',
         },
         foreignName: {
           type: 'string',
@@ -145,48 +145,48 @@ export class BusinessController {
         taxCode: {
           type: 'string',
           example: '0312345678',
-          description: '10 chu so hoac 10 so-3 so, vi du 0100109106-001',
+          description: '10 chữ số hoặc 10 chữ số-3 chữ số, ví dụ 0100109106-001',
         },
         businessType: {
           type: 'string',
-          example: 'Cong ty TNHH 1 thanh vien',
+          example: 'Công ty TNHH 1 thành viên',
         },
         industryCode: {
           type: 'string',
           example: '4669',
-          description: 'Ma nganh nghe cap 4 theo VSIC',
+          description: 'Mã ngành nghề cấp 4 theo VSIC',
         },
         industryName: {
           type: 'string',
-          example: 'Ban buon chuyen doanh khac chua duoc phan vao dau',
+          example: 'Bán buôn chuyên doanh khác chưa được phân vào đâu',
         },
         licenseIssueDate: { type: 'string', example: '2020-01-01' },
-        provinceCity: { type: 'string', example: 'Thanh pho Ho Chi Minh' },
-        wardCommune: { type: 'string', example: 'Phuong Hiep Binh Phuoc' },
+        provinceCity: { type: 'string', example: 'Thành phố Hồ Chí Minh' },
+        wardCommune: { type: 'string', example: 'Phường Hiệp Bình Phước' },
         address: {
           type: 'string',
-          example: '162 duong so 2, khu do thi Van Phuc',
+          example: '162 đường số 2, khu đô thị Vạn Phúc',
         },
         email: { type: 'string', example: 'vna@gmail.com' },
         agencyPhone: { type: 'string', example: '02812345678' },
         operatingProvinceCity: {
           type: 'string',
-          example: 'Thanh pho Ho Chi Minh',
+          example: 'Thành phố Hồ Chí Minh',
         },
         operatingWardCommune: {
           type: 'string',
-          example: 'Phuong Hiep Binh Phuoc',
+          example: 'Phường Hiệp Bình Phước',
         },
         businessLocation: {
           type: 'string',
-          example: '162 duong so 2, khu do thi Van Phuc',
+          example: '162 đường số 2, khu đô thị Vạn Phúc',
         },
-        representativeName: { type: 'string', example: 'Nguyen Van A' },
+        representativeName: { type: 'string', example: 'Nguyễn Văn A' },
         representativePhone: { type: 'string', example: '0909123456' },
         isActive: { type: 'string', example: 'true' },
         attachmentNames: {
           type: 'string',
-          example: '["Giay phep kinh doanh","Giay to khac"]',
+          example: '["Giấy phép kinh doanh","Giấy tờ mới"]',
         },
         attachments: {
           type: 'array',
@@ -199,7 +199,7 @@ export class BusinessController {
     },
   })
   @ApiOkResponse({
-    description: 'Doanh nghiep vua tao kem thong tin tai khoan mac dinh',
+    description: 'Doanh nghiệp vừa tạo kèm thông tin tài khoản mặc định',
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponseDto) },
@@ -228,9 +228,9 @@ export class BusinessController {
 
   @Patch(':id')
   @ApiOperation({
-    summary: 'Cap nhat doanh nghiep',
+    summary: 'Cập nhật doanh nghiệp',
     description:
-      'Nhan multipart/form-data. Neu gui attachments moi thi he thong them vao danh sach file hien co.',
+      'Nhận multipart/form-data. Nếu gửi file đính kèm mới thì hệ thống sẽ thêm vào danh sách file hiện có.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -239,46 +239,46 @@ export class BusinessController {
       properties: {
         businessName: {
           type: 'string',
-          example: 'Cong ty co phan cong nghe quoc te VNA',
+          example: 'Công ty cổ phần công nghệ quốc tế VNA',
         },
         foreignName: { type: 'string', example: 'VNA International' },
         taxCode: { type: 'string', example: '0312345678' },
         businessType: {
           type: 'string',
-          example: 'Cong ty TNHH 1 thanh vien',
+          example: 'Công ty TNHH 1 thành viên',
         },
         industryCode: { type: 'string', example: '4669' },
         industryName: {
           type: 'string',
-          example: 'Ban buon chuyen doanh khac chua duoc phan vao dau',
+          example: 'Bán buôn chuyên doanh khác chưa được phân vào đâu',
         },
         licenseIssueDate: { type: 'string', example: '2020-01-01' },
-        provinceCity: { type: 'string', example: 'Thanh pho Ho Chi Minh' },
-        wardCommune: { type: 'string', example: 'Phuong Hiep Binh Phuoc' },
+        provinceCity: { type: 'string', example: 'Thành phố Hồ Chí Minh' },
+        wardCommune: { type: 'string', example: 'Phường Hiệp Bình Phước' },
         address: {
           type: 'string',
-          example: '162 duong so 2, khu do thi Van Phuc',
+          example: '162 đường số 2, khu đô thị Vạn Phúc',
         },
         email: { type: 'string', example: 'vna@gmail.com' },
         agencyPhone: { type: 'string', example: '02812345678' },
         operatingProvinceCity: {
           type: 'string',
-          example: 'Thanh pho Ho Chi Minh',
+          example: 'Thành phố Hồ Chí Minh',
         },
         operatingWardCommune: {
           type: 'string',
-          example: 'Phuong Hiep Binh Phuoc',
+          example: 'Phường Hiệp Bình Phước',
         },
         businessLocation: {
           type: 'string',
-          example: '162 duong so 2, khu do thi Van Phuc',
+          example: '162 đường số 2, khu đô thị Vạn Phúc',
         },
-        representativeName: { type: 'string', example: 'Nguyen Van A' },
+        representativeName: { type: 'string', example: 'Nguyễn Văn A' },
         representativePhone: { type: 'string', example: '0909123456' },
         isActive: { type: 'string', example: 'true' },
         attachmentNames: {
           type: 'string',
-          example: '["Giay phep kinh doanh","Giay to khac"]',
+          example: '["Giấy phép kinh doanh","Giấy tờ khác"]',
         },
         attachments: {
           type: 'array',
@@ -288,7 +288,7 @@ export class BusinessController {
     },
   })
   @ApiOkResponse({
-    description: 'Doanh nghiep sau khi cap nhat',
+    description: 'Doanh nghiệp sau khi cập nhật',
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponseDto) },
@@ -317,7 +317,7 @@ export class BusinessController {
   }
 
   @Patch(':id/status')
-  @ApiOperation({ summary: 'Bat/tat trang thai doanh nghiep' })
+  @ApiOperation({ summary: 'Bật/tắt trạng thái doanh nghiệp' })
   @ApiBody({
     schema: {
       type: 'object',
@@ -328,7 +328,7 @@ export class BusinessController {
     },
   })
   @ApiOkResponse({
-    description: 'Doanh nghiep sau khi doi trang thai',
+    description: 'Doanh nghiệp sau khi đổi trạng thái',
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponseDto) },
@@ -348,9 +348,9 @@ export class BusinessController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Xoa doanh nghiep' })
+  @ApiOperation({ summary: 'Xóa doanh nghiệp' })
   @ApiOkResponse({
-    description: 'Ket qua xoa doanh nghiep',
+    description: 'Kết quả xóa doanh nghiệp',
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponseDto) },
@@ -372,7 +372,7 @@ export class BusinessController {
   }
 
   @Delete(':id/attachments/:attachmentId')
-  @ApiOperation({ summary: 'Xoa file dinh kem cua doanh nghiep' })
+  @ApiOperation({ summary: 'Xóa file đính kèm của doanh nghiệp' })
   deleteAttachment(
     @Param('id', ParseIntPipe) id: number,
     @Param('attachmentId', ParseIntPipe) attachmentId: number,
