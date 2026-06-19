@@ -12,6 +12,8 @@ import { RoleSeedService } from './services/role-seed.service';
 import { UserSeedService } from './services/user-seed.service';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './controllers/auth.controller';
+import { BusinessProfileController } from './controllers/business-profile.controller';
+import { BusinessRegistrationController } from './controllers/business-registration.controller';
 import { AuthService } from './services/auth.service';
 import { BusinessController } from './controllers/business.controller';
 import { BusinessService } from './services/business.service';
@@ -86,7 +88,13 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       },
     }),
   ],
-  controllers: [AuthController, UserController, BusinessController],
+  controllers: [
+    AuthController,
+    UserController,
+    BusinessProfileController,
+    BusinessRegistrationController,
+    BusinessController,
+  ],
   providers: [
     AuthService,
     UserService,

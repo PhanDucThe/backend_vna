@@ -13,7 +13,7 @@ interface SendOtpMailOptions {
   otp: string;
   expireMinutes: number;
   description: string;
-  template: 'forgot-password' | 'change-email';
+  template: 'forgot-password' | 'change-email' | 'business-registration';
 }
 
 interface SendMailResult {

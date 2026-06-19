@@ -1,10 +1,35 @@
-import { ValidationPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  ValidationError,
+  ValidationPipe,
+} from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from '../libs/shared/interceptors/response.interceptor';
 import { HttpExceptionFilter } from '../libs/shared/filters/http-exception.filter';
+
+function formatValidationErrors(errors: ValidationError[]) {
+  const messages: string[] = [];
+
+  for (const error of errors) {
+    if (error.constraints?.whitelistValidation) {
+      messages.push(`Trường ${error.property} không được phép gửi`);
+      continue;
+    }
+
+    if (error.constraints) {
+      messages.push(...Object.values(error.constraints));
+    }
+
+    if (error.children?.length) {
+      messages.push(...formatValidationErrors(error.children));
+    }
+  }
+
+  return messages;
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -26,6 +51,8 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
+      exceptionFactory: (errors) =>
+        new BadRequestException(formatValidationErrors(errors)),
     }),
   );
 
