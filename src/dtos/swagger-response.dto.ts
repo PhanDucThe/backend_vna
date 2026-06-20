@@ -285,6 +285,384 @@ export class BusinessListResponseDto {
   meta!: ApiResponseMetaDto;
 }
 
+export class LaborAccidentReportPeriodResponseDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 'Báo cáo TNLĐ' })
+  reportName!: string;
+
+  @ApiProperty({ example: 2026 })
+  year!: number;
+
+  @ApiProperty({ example: 'FULL_YEAR' })
+  periodType!: string;
+
+  @ApiProperty({ example: 'Cả năm' })
+  periodTypeLabel!: string;
+
+  @ApiProperty({ example: '2026-01-01' })
+  startDate!: string;
+
+  @ApiProperty({ example: '2026-12-31' })
+  endDate!: string;
+
+  @ApiProperty({ example: true })
+  isActive!: boolean;
+
+  @ApiProperty({ example: 'Hoạt động' })
+  statusLabel!: string;
+
+  @ApiProperty({ example: '2026-06-19T04:00:00.000Z' })
+  createdAt!: string;
+
+  @ApiProperty({ example: '2026-06-19T04:00:00.000Z' })
+  updatedAt!: string;
+}
+
+export class LaborAccidentReportPeriodListResponseDto {
+  @ApiProperty({ type: [LaborAccidentReportPeriodResponseDto] })
+  items!: LaborAccidentReportPeriodResponseDto[];
+
+  @ApiProperty({ type: ApiResponseMetaDto })
+  meta!: ApiResponseMetaDto;
+}
+
+export class LaborAccidentCatalogResponseDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 'INJURY_FACTOR' })
+  type!: string;
+
+  @ApiProperty({ example: 'Yếu tố gây chấn thương' })
+  typeLabel!: string;
+
+  @ApiProperty({ example: '4' })
+  code!: string;
+
+  @ApiProperty({ example: 'Thiết bị nâng' })
+  name!: string;
+
+  @ApiProperty({ example: 1 })
+  level!: number;
+
+  @ApiProperty({ example: null, nullable: true })
+  parentId!: number | null;
+
+  @ApiProperty({ example: null, nullable: true })
+  parentCode!: string | null;
+
+  @ApiProperty({ example: null, nullable: true })
+  parentName!: string | null;
+
+  @ApiProperty({ example: true })
+  isActive!: boolean;
+
+  @ApiProperty({ example: 'Sử dụng' })
+  statusLabel!: string;
+
+  @ApiProperty({ example: '2026-06-19T04:00:00.000Z' })
+  createdAt!: string;
+
+  @ApiProperty({ example: '2026-06-19T04:00:00.000Z' })
+  updatedAt!: string;
+}
+
+export class LaborAccidentCatalogListResponseDto {
+  @ApiProperty({ type: [LaborAccidentCatalogResponseDto] })
+  items!: LaborAccidentCatalogResponseDto[];
+
+  @ApiProperty({ type: ApiResponseMetaDto })
+  meta!: ApiResponseMetaDto;
+}
+
+export class LaborAccidentReportPeriodSummaryResponseDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 'Báo cáo TNLĐ' })
+  reportName!: string;
+
+  @ApiProperty({ example: 2026 })
+  year!: number;
+
+  @ApiProperty({ example: 'SIX_MONTHS' })
+  periodType!: string;
+
+  @ApiProperty({ example: '6 tháng' })
+  periodTypeLabel!: string;
+
+  @ApiProperty({ example: '2026-07-01' })
+  startDate!: string;
+
+  @ApiProperty({ example: '2026-07-15' })
+  endDate!: string;
+}
+
+export class LaborAccidentReportBusinessSummaryResponseDto {
+  @ApiProperty({ example: 1, nullable: true })
+  id!: number | null;
+
+  @ApiProperty({ example: 'Công ty TNHH Kiểm Thử Frontend 2601' })
+  businessName!: string;
+
+  @ApiProperty({ example: '0866192601' })
+  taxCode!: string;
+
+  @ApiProperty({ example: 'Công ty TNHH 1 thành viên', nullable: true })
+  businessType!: string | null;
+
+  @ApiProperty({ example: '4669', nullable: true })
+  industryCode!: string | null;
+
+  @ApiProperty({
+    example: 'Bán buôn chuyên doanh khác chưa được phân vào đâu',
+    nullable: true,
+  })
+  industryName!: string | null;
+}
+
+export class LaborAccidentReportCatalogSummaryResponseDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 'ACCIDENT_CAUSE' })
+  type!: string;
+
+  @ApiProperty({ example: '1' })
+  code!: string;
+
+  @ApiProperty({
+    example: 'Không có thiết bị an toàn hoặc thiết bị không đảm bảo an toàn',
+  })
+  name!: string;
+
+  @ApiProperty({ example: 2 })
+  level!: number;
+}
+
+export class LaborAccidentReportDetailResponseDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 'ACCIDENT' })
+  section!: string;
+
+  @ApiProperty({ example: 1 })
+  orderNo!: number;
+
+  @ApiProperty({
+    type: LaborAccidentReportCatalogSummaryResponseDto,
+    nullable: true,
+  })
+  accidentCauseCatalog!: LaborAccidentReportCatalogSummaryResponseDto | null;
+
+  @ApiProperty({
+    type: LaborAccidentReportCatalogSummaryResponseDto,
+    nullable: true,
+  })
+  injuryFactorCatalog!: LaborAccidentReportCatalogSummaryResponseDto | null;
+
+  @ApiProperty({
+    type: LaborAccidentReportCatalogSummaryResponseDto,
+    nullable: true,
+  })
+  occupationCatalog!: LaborAccidentReportCatalogSummaryResponseDto | null;
+
+  @ApiProperty({ example: null, nullable: true })
+  note!: string | null;
+
+  @ApiProperty({ example: 1 })
+  totalAccidents!: number;
+
+  @ApiProperty({ example: 1 })
+  fatalAccidents!: number;
+
+  @ApiProperty({ example: 1 })
+  accidentsWithTwoOrMoreVictims!: number;
+
+  @ApiProperty({ example: 10 })
+  totalVictims!: number;
+
+  @ApiProperty({ example: 5 })
+  femaleVictims!: number;
+
+  @ApiProperty({ example: 5 })
+  deathVictims!: number;
+
+  @ApiProperty({ example: 10 })
+  severeInjuryVictims!: number;
+
+  @ApiProperty({ example: 0 })
+  victimsNotUnderManagement!: number;
+
+  @ApiProperty({ example: 0 })
+  femaleVictimsNotUnderManagement!: number;
+
+  @ApiProperty({ example: 0 })
+  deathVictimsNotUnderManagement!: number;
+
+  @ApiProperty({ example: 0 })
+  severeInjuryVictimsNotUnderManagement!: number;
+
+  @ApiProperty({ example: 2000000 })
+  medicalCost!: number;
+
+  @ApiProperty({ example: 2000000 })
+  salaryPaymentCost!: number;
+
+  @ApiProperty({ example: 2000000 })
+  allowanceCost!: number;
+
+  @ApiProperty({ example: 6000000 })
+  totalCost!: number;
+
+  @ApiProperty({ example: 20 })
+  daysOff!: number;
+
+  @ApiProperty({ example: 20000000 })
+  propertyDamage!: number;
+}
+
+export class LaborAccidentReportAttachmentResponseDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ example: 'STAMPED_REPORT' })
+  type!: string;
+
+  @ApiProperty({ example: 'Báo cáo TNLĐ có dấu mộc' })
+  displayName!: string;
+
+  @ApiProperty({ example: 'baocaoTNLD.pdf' })
+  originalName!: string;
+
+  @ApiProperty({ example: 'https://res.cloudinary.com/.../baocaoTNLD.pdf' })
+  fileUrl!: string;
+
+  @ApiProperty({ example: 'application/pdf', nullable: true })
+  mimetype!: string | null;
+
+  @ApiProperty({ example: 245760, nullable: true })
+  size!: number | null;
+
+  @ApiProperty({ example: 12, nullable: true })
+  uploadedByUserId!: number | null;
+
+  @ApiProperty({ example: '0866192601', nullable: true })
+  uploadedByUsername!: string | null;
+
+  @ApiProperty({ example: '2026-06-19T04:00:00.000Z' })
+  createdAt!: string;
+}
+
+export class LaborAccidentReportResponseDto {
+  @ApiProperty({ example: 1 })
+  id!: number;
+
+  @ApiProperty({ type: LaborAccidentReportPeriodSummaryResponseDto })
+  reportPeriod!: LaborAccidentReportPeriodSummaryResponseDto;
+
+  @ApiProperty({ type: LaborAccidentReportBusinessSummaryResponseDto })
+  business!: LaborAccidentReportBusinessSummaryResponseDto;
+
+  @ApiProperty({ example: 10 })
+  totalEmployees!: number;
+
+  @ApiProperty({ example: 5 })
+  femaleEmployees!: number;
+
+  @ApiProperty({ example: 10000000 })
+  totalPayroll!: number;
+
+  @ApiProperty({ example: 2 })
+  totalAccidents!: number;
+
+  @ApiProperty({ example: 1 })
+  fatalAccidents!: number;
+
+  @ApiProperty({ example: 1 })
+  accidentsWithTwoOrMoreVictims!: number;
+
+  @ApiProperty({ example: 10 })
+  totalVictims!: number;
+
+  @ApiProperty({ example: 5 })
+  femaleVictims!: number;
+
+  @ApiProperty({ example: 5 })
+  deathVictims!: number;
+
+  @ApiProperty({ example: 10 })
+  severeInjuryVictims!: number;
+
+  @ApiProperty({ example: 0 })
+  victimsNotUnderManagement!: number;
+
+  @ApiProperty({ example: 0 })
+  femaleVictimsNotUnderManagement!: number;
+
+  @ApiProperty({ example: 0 })
+  deathVictimsNotUnderManagement!: number;
+
+  @ApiProperty({ example: 0 })
+  severeInjuryVictimsNotUnderManagement!: number;
+
+  @ApiProperty({ example: 2000000 })
+  medicalCost!: number;
+
+  @ApiProperty({ example: 2000000 })
+  salaryPaymentCost!: number;
+
+  @ApiProperty({ example: 2000000 })
+  allowanceCost!: number;
+
+  @ApiProperty({ example: 6000000 })
+  totalCost!: number;
+
+  @ApiProperty({ example: 20 })
+  totalDaysOff!: number;
+
+  @ApiProperty({ example: 20000000 })
+  propertyDamage!: number;
+
+  @ApiProperty({ example: 'DRAFT' })
+  status!: string;
+
+  @ApiProperty({ example: 'Đang báo cáo' })
+  statusLabel!: string;
+
+  @ApiProperty({ example: null, nullable: true })
+  submittedAt!: string | null;
+
+  @ApiProperty({ example: null, nullable: true })
+  receivedAt!: string | null;
+
+  @ApiProperty({ type: [LaborAccidentReportDetailResponseDto] })
+  details!: LaborAccidentReportDetailResponseDto[] | undefined;
+
+  @ApiProperty({ type: [LaborAccidentReportAttachmentResponseDto] })
+  attachments!: LaborAccidentReportAttachmentResponseDto[];
+
+  @ApiProperty({ example: 1 })
+  attachmentCount!: number;
+
+  @ApiProperty({ example: '2026-06-19T04:00:00.000Z' })
+  createdAt!: string;
+
+  @ApiProperty({ example: '2026-06-19T04:00:00.000Z' })
+  updatedAt!: string;
+}
+
+export class LaborAccidentReportListResponseDto {
+  @ApiProperty({ type: [LaborAccidentReportResponseDto] })
+  items!: LaborAccidentReportResponseDto[];
+
+  @ApiProperty({ type: ApiResponseMetaDto })
+  meta!: ApiResponseMetaDto;
+}
+
 export class LoginUserResponseDto {
   @ApiProperty({ example: 1 })
   id!: number;

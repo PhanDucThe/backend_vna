@@ -8,15 +8,27 @@ import { Role } from './entities/role.entity';
 import { UserRole } from './entities/user-role.entity';
 import { BusinessAttachment } from './entities/business-attachment.entity';
 import { Business } from './entities/business.entity';
+import { LaborAccidentCatalog } from './entities/labor-accident-catalog.entity';
+import { LaborAccidentReportAttachment } from './entities/labor-accident-report-attachment.entity';
+import { LaborAccidentReportDetail } from './entities/labor-accident-report-detail.entity';
+import { LaborAccidentReportPeriod } from './entities/labor-accident-report-period.entity';
+import { LaborAccidentReport } from './entities/labor-accident-report.entity';
 import { RoleSeedService } from './services/role-seed.service';
 import { UserSeedService } from './services/user-seed.service';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './controllers/auth.controller';
 import { BusinessProfileController } from './controllers/business-profile.controller';
 import { BusinessRegistrationController } from './controllers/business-registration.controller';
+import { LaborAccidentCatalogController } from './controllers/labor-accident-catalog.controller';
+import { LaborAccidentReportController } from './controllers/labor-accident-report.controller';
+import { LaborAccidentReportPeriodController } from './controllers/labor-accident-report-period.controller';
 import { AuthService } from './services/auth.service';
 import { BusinessController } from './controllers/business.controller';
 import { BusinessService } from './services/business.service';
+import { LaborAccidentCatalogSeedService } from './services/labor-accident-catalog-seed.service';
+import { LaborAccidentCatalogService } from './services/labor-accident-catalog.service';
+import { LaborAccidentReportService } from './services/labor-accident-report.service';
+import { LaborAccidentReportPeriodService } from './services/labor-accident-report-period.service';
 import { UserController } from './controllers/user.controller';
 import { UserService } from './services/user.service';
 import { CloudinaryService } from './services/cloudinary.service';
@@ -53,6 +65,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
           EmailOtp,
           Business,
           BusinessAttachment,
+          LaborAccidentCatalog,
+          LaborAccidentReport,
+          LaborAccidentReportAttachment,
+          LaborAccidentReportDetail,
+          LaborAccidentReportPeriod,
         ],
 
         synchronize: true,
@@ -67,6 +84,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       EmailOtp,
       Business,
       BusinessAttachment,
+      LaborAccidentCatalog,
+      LaborAccidentReport,
+      LaborAccidentReportAttachment,
+      LaborAccidentReportDetail,
+      LaborAccidentReportPeriod,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -93,12 +115,18 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     UserController,
     BusinessProfileController,
     BusinessRegistrationController,
+    LaborAccidentCatalogController,
+    LaborAccidentReportController,
+    LaborAccidentReportPeriodController,
     BusinessController,
   ],
   providers: [
     AuthService,
     UserService,
     BusinessService,
+    LaborAccidentCatalogService,
+    LaborAccidentReportService,
+    LaborAccidentReportPeriodService,
     CloudinaryService,
     MailService,
     JwtAuthGuard,
@@ -106,6 +134,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtStrategy,
     RoleSeedService,
     UserSeedService,
+    LaborAccidentCatalogSeedService,
   ],
 })
 export class AppModule {}
