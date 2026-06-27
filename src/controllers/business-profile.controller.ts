@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Patch,
   Post,
+  Query,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -27,10 +28,12 @@ import type {} from 'multer';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import type { CurrentUserData } from '../decorators/current-user.decorator';
 import { Roles } from '../decorators/roles.decorator';
+import { ROLE_CODES } from '../constants/roles.constant';
 import {
   UpdateBusinessProfileDto,
   VerifyBusinessProfileEmailOtpDto,
 } from '../dtos/business-profile.dto';
+import { SendChangeEmailOtpQueryDto } from '../dtos/change-gmail.dto';
 import {
   ApiErrorResponseDto,
   ApiSuccessResponseDto,
@@ -42,7 +45,7 @@ import { BusinessService } from '../services/business.service';
 
 @Controller('businesses/me')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('USER')
+@Roles(ROLE_CODES.EMPLOYEE)
 @ApiTags('Businesses')
 @ApiBearerAuth('access-token')
 @ApiExtraModels(ApiSuccessResponseDto, ApiErrorResponseDto, BusinessResponseDto)
@@ -83,8 +86,14 @@ export class BusinessProfileController {
     description: 'Gui OTP thanh cong',
     type: ApiSuccessResponseDto,
   })
-  sendEmailChangeOtp(@CurrentUser() currentUser: CurrentUserData) {
-    return this.businessService.sendBusinessProfileEmailOtp(currentUser.id);
+  sendEmailChangeOtp(
+    @CurrentUser() currentUser: CurrentUserData,
+    @Query() query: SendChangeEmailOtpQueryDto,
+  ) {
+    return this.businessService.sendBusinessProfileEmailOtp(
+      currentUser.id,
+      query.newEmail,
+    );
   }
 
   @Post('email/verify-otp')

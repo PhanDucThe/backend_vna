@@ -7,6 +7,7 @@ import {
   Ip,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -22,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 
 import {
+  SendChangeEmailOtpQueryDto,
   UpdateChangeGmailDto,
   VerifyChangeGmailOtpDto,
 } from '../dtos/change-gmail.dto';
@@ -30,6 +32,7 @@ import type { CurrentUserData } from '../decorators/current-user.decorator';
 import { ChangePasswordDto } from '../dtos/change-password.dto';
 import { ForgotPasswordDto } from '../dtos/forgot-password.dto';
 import { LoginDto } from '../dtos/login.dto';
+import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { ResetPasswordDto } from '../dtos/reset-password.dto';
 import { VerifyForgotPasswordOtpDto } from '../dtos/verify-forgot-password-otp.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
@@ -38,11 +41,17 @@ import {
   ApiErrorResponseDto,
   ApiSuccessResponseDto,
   LoginResponseDto,
+  RefreshAccessTokenResponseDto,
 } from '../dtos/swagger-response.dto';
 
 @Controller('auth')
 @ApiTags('Auth')
-@ApiExtraModels(ApiSuccessResponseDto, ApiErrorResponseDto, LoginResponseDto)
+@ApiExtraModels(
+  ApiSuccessResponseDto,
+  ApiErrorResponseDto,
+  LoginResponseDto,
+  RefreshAccessTokenResponseDto,
+)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -79,6 +88,55 @@ export class AuthController {
     @Ip() ipAddress: string,
   ) {
     return this.authService.login(loginDto, userAgent, ipAddress);
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Cấp access token mới',
+    description:
+      'Xác thực chữ ký refresh token và đối chiếu token hash chưa hết hạn, chưa bị thu hồi trong cơ sở dữ liệu.',
+  })
+  @ApiOkResponse({
+    description: 'Access token mới',
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiSuccessResponseDto) },
+        {
+          properties: {
+            data: {
+              $ref: getSchemaPath(RefreshAccessTokenResponseDto),
+            },
+          },
+        },
+      ],
+    },
+  })
+  @SwaggerApiResponse({
+    status: 401,
+    description: 'Refresh token không hợp lệ, hết hạn hoặc đã bị thu hồi',
+    type: ApiErrorResponseDto,
+  })
+  refresh(@Body() body: RefreshTokenDto) {
+    return this.authService.refreshAccessToken(body.refreshToken);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Đăng xuất và thu hồi refresh token',
+  })
+  @ApiOkResponse({
+    description: 'Refresh token đã được thu hồi',
+    type: ApiSuccessResponseDto,
+  })
+  @SwaggerApiResponse({
+    status: 401,
+    description: 'Refresh token không hợp lệ, hết hạn hoặc đã bị thu hồi',
+    type: ApiErrorResponseDto,
+  })
+  logout(@Body() body: RefreshTokenDto) {
+    return this.authService.logout(body.refreshToken);
   }
 
   @Post('forgot-password')
@@ -143,8 +201,14 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Gui OTP doi Gmail cho user dang dang nhap' })
   @ApiOkResponse({ description: 'Gui OTP thanh cong', type: ApiSuccessResponseDto })
-  sendChangeGmailOtp(@CurrentUser() currentUser: CurrentUserData) {
-    return this.authService.sendChangeGmailOtp(currentUser.id);
+  sendChangeGmailOtp(
+    @CurrentUser() currentUser: CurrentUserData,
+    @Query() query: SendChangeEmailOtpQueryDto,
+  ) {
+    return this.authService.sendChangeGmailOtp(
+      currentUser.id,
+      query.newEmail,
+    );
   }
 
   @Post('change-gmail/verify-otp')

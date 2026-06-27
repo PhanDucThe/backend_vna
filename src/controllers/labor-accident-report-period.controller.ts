@@ -20,6 +20,10 @@ import {
 
 import { Roles } from '../decorators/roles.decorator';
 import {
+  MANAGEMENT_ROLE_CODES,
+  ROLE_CODES,
+} from '../constants/roles.constant';
+import {
   CreateLaborAccidentReportPeriodDto,
   ListLaborAccidentReportPeriodsQueryDto,
   UpdateLaborAccidentReportPeriodDto,
@@ -37,7 +41,7 @@ import { LaborAccidentReportPeriodService } from '../services/labor-accident-rep
 
 @Controller('labor-accident-report-periods')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles(...MANAGEMENT_ROLE_CODES)
 @ApiTags('Kỳ báo cáo TNLĐ')
 @ApiBearerAuth('access-token')
 @ApiExtraModels(
@@ -52,6 +56,7 @@ export class LaborAccidentReportPeriodController {
   ) {}
 
   @Get()
+  @Roles(...MANAGEMENT_ROLE_CODES, ROLE_CODES.EMPLOYEE)
   @ApiOperation({
     summary: 'Danh sách cấu hình kỳ báo cáo TNLĐ',
     description:

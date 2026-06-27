@@ -1,5 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  ArrayUnique,
+  IsArray,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 import { LaborAccidentReportDetailSection } from '../entities/labor-accident-report-detail.entity';
 import { LaborAccidentReportStatus } from '../entities/labor-accident-report.entity';
@@ -241,4 +251,28 @@ export class SubmitLaborAccidentReportDto {
   @IsOptional()
   @IsString()
   attachmentNames?: string;
+}
+
+export class BulkReceiveLaborAccidentReportsDto {
+  @ApiProperty({
+    type: [Number],
+    example: [1, 2, 3],
+    description: 'Danh sách id báo cáo đã ở trạng thái SUBMITTED',
+  })
+  @IsArray({ message: 'Danh sách báo cáo phải là một mảng' })
+  @ArrayNotEmpty({ message: 'Danh sách báo cáo không được để trống' })
+  @ArrayUnique({ message: 'Danh sách báo cáo không được chứa id trùng lặp' })
+  @IsInt({ each: true, message: 'Id báo cáo phải là số nguyên' })
+  @Min(1, { each: true, message: 'Id báo cáo phải lớn hơn 0' })
+  ids!: number[];
+}
+
+export class BulkRejectLaborAccidentReportsDto extends BulkReceiveLaborAccidentReportsDto {
+  @ApiProperty({
+    example: 'Báo cáo cần bổ sung thông tin',
+    description: 'Lý do từ chối áp dụng cho các báo cáo trong danh sách',
+  })
+  @IsString({ message: 'Lý do từ chối phải là chuỗi' })
+  @IsNotEmpty({ message: 'Lý do từ chối không được để trống' })
+  rejectReason!: string;
 }

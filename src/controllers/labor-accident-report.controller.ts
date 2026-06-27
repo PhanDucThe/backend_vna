@@ -27,6 +27,7 @@ import type {} from 'multer';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import type { CurrentUserData } from '../decorators/current-user.decorator';
 import { Roles } from '../decorators/roles.decorator';
+import { ROLE_CODES } from '../constants/roles.constant';
 import {
   ListMyLaborAccidentReportsQueryDto,
   SaveLaborAccidentReportDraftDto,
@@ -46,7 +47,7 @@ import { LaborAccidentReportService } from '../services/labor-accident-report.se
 
 @Controller('labor-accident-reports/my')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('USER')
+@Roles(ROLE_CODES.EMPLOYEE)
 @ApiTags('Báo cáo TNLĐ doanh nghiệp')
 @ApiBearerAuth('access-token')
 @ApiExtraModels(

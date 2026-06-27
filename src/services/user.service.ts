@@ -17,6 +17,13 @@ import { Role } from '../entities/role.entity';
 import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { CloudinaryService } from './cloudinary.service';
+import { MANAGEMENT_ROLE_CODES, ROLE_CODES } from '../constants/roles.constant';
+import {
+  mapInternalRoleCodeToApi,
+  mapInternalRoleCodesToApi,
+  resolveRequestedInternalRoleCode,
+  resolveRoleFilterInternalCodes,
+} from '../constants/api-role.constant';
 
 @Injectable()
 export class UserService {
@@ -46,10 +53,6 @@ export class UserService {
       .leftJoinAndSelect('userRole.role', 'role')
       .distinct(true);
 
-    if (currentUser.roles.includes('ADMIN')) {
-      this.excludeAdminUsers(queryBuilder);
-    }
-
     if (query.keyword?.trim()) {
       const keyword = this.toLikeValue(query.keyword);
 
@@ -78,12 +81,20 @@ export class UserService {
     }
 
     if (query.role?.trim()) {
-      queryBuilder.andWhere(
-        '(LOWER(role.code) LIKE :role OR LOWER(role.name) LIKE :role)',
-        {
-          role: this.toLikeValue(query.role),
-        },
-      );
+      const internalRoleCodes = resolveRoleFilterInternalCodes(query.role);
+
+      if (internalRoleCodes) {
+        queryBuilder.andWhere('role.code IN (:...roleCodes)', {
+          roleCodes: internalRoleCodes,
+        });
+      } else {
+        queryBuilder.andWhere(
+          '(LOWER(role.code) LIKE :role OR LOWER(role.name) LIKE :role)',
+          {
+            role: this.toLikeValue(query.role),
+          },
+        );
+      }
     }
 
     if (query.position?.trim()) {
@@ -139,7 +150,9 @@ export class UserService {
       throw new NotFoundException('Không tìm thấy người dùng');
     }
 
-    const roles = user.userRoles.map((userRole) => userRole.role.code);
+    const roles = mapInternalRoleCodesToApi(
+      user.userRoles.map((userRole) => userRole.role.code),
+    );
 
     return {
       message: 'Lấy thông tin người dùng thành công',
@@ -164,7 +177,7 @@ export class UserService {
   }
 
   async getUserDetail(id: number, currentUser: CurrentUserData) {
-    const user = await this.findManageableUser(id, currentUser);
+    const user = await this.findUserForManagement(id, currentUser);
 
     return {
       message: 'Lấy chi tiết người dùng thành công',
@@ -177,7 +190,7 @@ export class UserService {
     currentUser: CurrentUserData,
     file?: Express.Multer.File,
   ) {
-    if (!currentUser.roles.includes('ADMIN')) {
+    if (!this.hasManagementRole(currentUser.roles)) {
       throw new BadRequestException('Bạn không có quyền tạo người dùng');
     }
 
@@ -188,7 +201,7 @@ export class UserService {
     await this.validateUniqueEmail(0, email, '');
 
     const requestedRole =
-      (await this.getRequestedRole(createUserDto)) ??
+      (await this.getRequestedRole(createUserDto, currentUser)) ??
       (await this.getDefaultUserRole());
 
     let avatarUrl: string | null = null;
@@ -204,7 +217,10 @@ export class UserService {
 
     const user = this.userRepository.create({
       username,
-      password: await bcrypt.hash(this.toRequiredString(createUserDto.password), 10),
+      password: await bcrypt.hash(
+        this.toRequiredString(createUserDto.password),
+        10,
+      ),
       fullName: this.toRequiredString(createUserDto.fullName),
       email,
       gender: this.toOptionalString(createUserDto.gender, null),
@@ -231,7 +247,10 @@ export class UserService {
       }),
     );
 
-    const createdUser = await this.findManageableUser(savedUser.id, currentUser);
+    const createdUser = await this.findUserForManagement(
+      savedUser.id,
+      currentUser,
+    );
 
     return {
       message: 'Tạo người dùng thành công',
@@ -245,33 +264,46 @@ export class UserService {
     currentUser: CurrentUserData,
     file?: Express.Multer.File,
   ) {
-    const user = await this.findManageableUser(id, currentUser);
-
-    await this.validateUniqueUsername(id, updateUserDto.username, user.username);
-    await this.validateUniqueEmail(id, updateUserDto.email, user.email);
-
-    const requestedRole = await this.getRequestedRole(updateUserDto);
-
-    let avatarUrl = user.avatar;
-
-    if (file) {
-      const uploadResult = await this.cloudinaryService.uploadImage(
-        file,
-        this.configService.get<string>('CLOUDINARY_FOLDER_USERS') || 'users',
-      );
-
-      avatarUrl = uploadResult.secure_url;
-    } else if (updateUserDto.removeAvatar === 'true') {
-      avatarUrl = null;
-    } else if (updateUserDto.avatar !== undefined) {
-      avatarUrl = this.toOptionalString(updateUserDto.avatar, user.avatar);
+    if (id === currentUser.id) {
+      return this.updateOwnProfile(id, updateUserDto, file);
     }
 
-    user.username = this.toTrimmedValue(updateUserDto.username) ?? user.username;
-    user.fullName = this.toTrimmedValue(updateUserDto.fullName) ?? user.fullName;
+    const user = await this.findUserForManagement(id, currentUser);
+
+    if (this.isAdminUser(user) && !this.isCeo(currentUser)) {
+      throw new BadRequestException(
+        'Chỉ CEO được cập nhật tài khoản quản trị viên',
+      );
+    }
+
+    await this.validateUniqueUsername(
+      id,
+      updateUserDto.username,
+      user.username,
+    );
+    await this.validateUniqueEmail(id, updateUserDto.email, user.email);
+
+    const requestedRole = await this.getRequestedRole(
+      updateUserDto,
+      currentUser,
+    );
+
+    const avatarUrl = await this.resolveAvatarUrl(
+      user.avatar,
+      updateUserDto,
+      file,
+    );
+
+    user.username =
+      this.toTrimmedValue(updateUserDto.username) ?? user.username;
+    user.fullName =
+      this.toTrimmedValue(updateUserDto.fullName) ?? user.fullName;
     user.email = this.toTrimmedValue(updateUserDto.email) ?? user.email;
     user.gender = this.toOptionalString(updateUserDto.gender, user.gender);
-    user.position = this.toOptionalString(updateUserDto.position, user.position);
+    user.position = this.toOptionalString(
+      updateUserDto.position,
+      user.position,
+    );
     user.provinceCity = this.toOptionalString(
       updateUserDto.provinceCity,
       user.provinceCity,
@@ -314,12 +346,94 @@ export class UserService {
       );
     }
 
-    const updatedUser = await this.findManageableUser(id, currentUser);
+    const updatedUser = await this.findUserForManagement(id, currentUser);
 
     return {
       message: 'Cập nhật người dùng thành công',
       data: this.mapUserDetail(updatedUser),
     };
+  }
+
+  private async updateOwnProfile(
+    id: number,
+    updateUserDto: UpdateUserDto,
+    file?: Express.Multer.File,
+  ) {
+    if (
+      updateUserDto.username !== undefined ||
+      updateUserDto.password !== undefined ||
+      updateUserDto.roleId !== undefined ||
+      updateUserDto.roleCode !== undefined ||
+      updateUserDto.role !== undefined
+    ) {
+      throw new BadRequestException(
+        'Không được thay đổi tài khoản, mật khẩu hoặc vai trò khi cập nhật hồ sơ',
+      );
+    }
+
+    const user = await this.findUserById(id);
+    await this.validateUniqueEmail(id, updateUserDto.email, user.email);
+
+    user.fullName =
+      this.toTrimmedValue(updateUserDto.fullName) ?? user.fullName;
+    user.email = this.toTrimmedValue(updateUserDto.email) ?? user.email;
+    user.gender = this.toOptionalString(updateUserDto.gender, user.gender);
+    user.position = this.toOptionalString(
+      updateUserDto.position,
+      user.position,
+    );
+    user.provinceCity = this.toOptionalString(
+      updateUserDto.provinceCity,
+      user.provinceCity,
+    );
+    user.wardCommune = this.toOptionalString(
+      updateUserDto.wardCommune,
+      user.wardCommune,
+    );
+    user.address = this.toOptionalString(updateUserDto.address, user.address);
+    user.avatar = await this.resolveAvatarUrl(
+      user.avatar,
+      updateUserDto,
+      file,
+    );
+
+    if (updateUserDto.dateOfBirth !== undefined) {
+      const dateOfBirth = this.toTrimmedValue(updateUserDto.dateOfBirth);
+      user.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : user.dateOfBirth;
+    }
+
+    await this.userRepository.save(user);
+    const updatedUser = await this.findUserById(id);
+
+    return {
+      message: 'Cập nhật hồ sơ thành công',
+      data: this.mapUserDetail(updatedUser),
+    };
+  }
+
+  private async resolveAvatarUrl(
+    currentAvatar: string | null,
+    updateUserDto: UpdateUserDto,
+    file?: Express.Multer.File,
+  ) {
+    if (file) {
+      const uploadResult = await this.cloudinaryService.uploadImage(
+        file,
+        this.configService.get<string>('CLOUDINARY_FOLDER_USERS') || 'users',
+      );
+
+      return uploadResult.secure_url;
+    }
+
+    if (updateUserDto.removeAvatar === 'true') {
+      return null;
+    }
+
+    if (updateUserDto.avatar !== undefined) {
+      return this.toOptionalString(updateUserDto.avatar, currentAvatar);
+    }
+
+    return currentAvatar;
   }
 
   async deleteUser(id: number, currentUser: CurrentUserData) {
@@ -380,10 +494,27 @@ export class UserService {
   }
 
   private async findManageableUser(id: number, currentUser: CurrentUserData) {
-    if (!currentUser.roles.includes('ADMIN')) {
+    const user = await this.findUserForManagement(id, currentUser);
+
+    if (this.isAdminUser(user)) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
+
+    return user;
+  }
+
+  private async findUserForManagement(
+    id: number,
+    currentUser: CurrentUserData,
+  ) {
+    if (!this.hasManagementRole(currentUser.roles)) {
       throw new BadRequestException('Bạn không có quyền quản lý người dùng');
     }
 
+    return this.findUserById(id);
+  }
+
+  private async findUserById(id: number) {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: {
@@ -393,14 +524,17 @@ export class UserService {
       },
     });
 
-    if (!user || this.isAdminUser(user)) {
+    if (!user) {
       throw new NotFoundException('Không tìm thấy người dùng');
     }
 
     return user;
   }
 
-  private async getRequestedRole(updateUserDto: UpdateUserDto) {
+  private async getRequestedRole(
+    updateUserDto: UpdateUserDto,
+    currentUser: CurrentUserData,
+  ) {
     const roleId = this.toTrimmedValue(updateUserDto.roleId);
     const roleCode = this.toTrimmedValue(updateUserDto.roleCode);
     const role = this.toTrimmedValue(updateUserDto.role);
@@ -420,10 +554,14 @@ export class UserService {
 
       queryBuilder.where('role.id = :roleId', { roleId: parsedRoleId });
     } else {
+      const requestedRoleCode = resolveRequestedInternalRoleCode(
+        roleCode ?? role ?? '',
+      );
+
       queryBuilder.where(
         'LOWER(role.code) = :roleValue OR LOWER(role.name) = :roleValue',
         {
-          roleValue: (roleCode ?? role ?? '').toLowerCase(),
+          roleValue: (requestedRoleCode ?? roleCode ?? role ?? '').toLowerCase(),
         },
       );
     }
@@ -434,9 +572,9 @@ export class UserService {
       throw new BadRequestException('Vai trò không hợp lệ');
     }
 
-    if (requestedRole.code === 'ADMIN') {
+    if (this.isManagementRoleCode(requestedRole.code) && !this.isCeo(currentUser)) {
       throw new BadRequestException(
-        'Không thể gán vai trò quản trị viên tại màn quản lý người dùng',
+        'Chỉ CEO được gán vai trò quản trị viên',
       );
     }
 
@@ -446,28 +584,15 @@ export class UserService {
   private async getDefaultUserRole() {
     const userRole = await this.roleRepository.findOne({
       where: {
-        code: 'USER',
+        code: ROLE_CODES.EMPLOYEE,
       },
     });
 
     if (!userRole) {
-      throw new BadRequestException('Chưa cấu hình vai trò USER');
+      throw new BadRequestException('Chưa cấu hình vai trò Employee');
     }
 
     return userRole;
-  }
-
-  private excludeAdminUsers(queryBuilder: ReturnType<Repository<User>['createQueryBuilder']>) {
-    queryBuilder.andWhere(
-      `NOT EXISTS (
-        SELECT 1
-        FROM user_roles admin_user_role
-        INNER JOIN roles admin_role ON admin_role.id = admin_user_role.role_id
-        WHERE admin_user_role.user_id = "user"."id"
-        AND admin_role.code = :excludedRole
-      )`,
-      { excludedRole: 'ADMIN' },
-    );
   }
 
   private toPositiveNumber(value: string | undefined, defaultValue: number) {
@@ -511,7 +636,21 @@ export class UserService {
   }
 
   private isAdminUser(user: User) {
-    return user.userRoles?.some((userRole) => userRole.role.code === 'ADMIN');
+    return user.userRoles?.some((userRole) =>
+      this.isManagementRoleCode(userRole.role.code),
+    );
+  }
+
+  private hasManagementRole(roles: string[]) {
+    return roles.some((role) => this.isManagementRoleCode(role));
+  }
+
+  private isManagementRoleCode(role: string) {
+    return (MANAGEMENT_ROLE_CODES as readonly string[]).includes(role);
+  }
+
+  private isCeo(currentUser: CurrentUserData) {
+    return currentUser.roles.includes(ROLE_CODES.CEO);
   }
 
   private formatDateInput(value: Date | string | null | undefined) {
@@ -529,7 +668,9 @@ export class UserService {
   private mapUserListItem(user: User) {
     const roles = this.mapRoles(user);
     const roleNames = roles.map((role) => role.name);
-    const roleCodes = roles.map((role) => role.code);
+    const roleCodes = mapInternalRoleCodesToApi(
+      roles.map((role) => role.code),
+    );
 
     return {
       id: user.id,
@@ -582,7 +723,7 @@ export class UserService {
     return (
       user.userRoles?.map((userRole) => ({
         id: userRole.role.id,
-        code: userRole.role.code,
+        code: mapInternalRoleCodeToApi(userRole.role.code),
         name: userRole.role.name,
       })) ?? []
     );

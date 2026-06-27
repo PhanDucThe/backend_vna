@@ -25,9 +25,15 @@ import { RefreshToken } from '../entities/refresh-token.entity';
 import { User } from '../entities/user.entity';
 import { JwtSignOptions } from '@nestjs/jwt';
 import { MailService } from './mail.service';
+import { mapInternalRoleCodesToApi } from '../constants/api-role.constant';
 
 const RESET_PASSWORD_PURPOSE = 'RESET_PASSWORD';
 const CHANGE_GMAIL_PURPOSE = 'CHANGE_GMAIL';
+
+type RefreshTokenPayload = {
+  sub: number;
+  type: 'refresh_token';
+};
 
 @Injectable()
 export class AuthService {
@@ -57,7 +63,11 @@ export class AuthService {
       },
       relations: {
         userRoles: {
-          role: true,
+          role: {
+            rolePermissions: {
+              permission: true,
+            },
+          },
         },
       },
     });
@@ -77,32 +87,28 @@ export class AuthService {
     }
 
     const roles = user.userRoles.map((userRole) => userRole.role.code);
+    const permissions = [
+      ...new Set(
+        user.userRoles.flatMap((userRole) =>
+          (userRole.role.rolePermissions ?? []).map(
+            (rolePermission) => rolePermission.permission.code,
+          ),
+        ),
+      ),
+    ];
 
-    const payload = {
-      sub: user.id,
-      username: user.username,
+    const accessToken = await this.signAccessToken(
+      user.id,
+      user.username,
       roles,
-    };
-
-    const accessSecret =
-      this.configService.get<string>('JWT_ACCESS_SECRET') ||
-      'vna_access_secret_key';
-
-    const accessExpiresIn = (this.configService.get<string>(
-      'JWT_ACCESS_EXPIRES_IN',
-    ) || '15m') as JwtSignOptions['expiresIn'];
-
-    const accessToken = await this.jwtService.signAsync(payload, {
-      secret: accessSecret,
-      expiresIn: accessExpiresIn,
-    });
-
-    const refreshExpiresIn = (
+      permissions,
+    );
+    const refreshExpiresIn = this.getJwtDuration(
       rememberMe
-        ? this.configService.get<string>('JWT_REFRESH_REMEMBER_EXPIRES_IN') ||
-          '30d'
-        : this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '1d'
-    ) as JwtSignOptions['expiresIn'];
+        ? 'JWT_REFRESH_REMEMBER_EXPIRES_IN'
+        : 'JWT_REFRESH_EXPIRES_IN',
+      rememberMe ? '30d' : '1d',
+    );
 
     const refreshSecret =
       this.configService.get<string>('JWT_REFRESH_SECRET') ||
@@ -139,16 +145,49 @@ export class AuthService {
         accessToken,
         refreshToken,
         tokenType: 'Bearer',
-        expiresIn: 15 * 60,
+        expiresIn: this.getAccessTokenExpiresInSeconds(),
         user: {
           id: user.id,
           username: user.username,
           fullName: user.fullName,
           email: user.email,
           avatar: user.avatar,
-          roles,
+          roles: mapInternalRoleCodesToApi(roles),
+          permissions,
         },
       },
+    };
+  }
+
+  async refreshAccessToken(refreshToken: string) {
+    const storedToken = await this.validateStoredRefreshToken(refreshToken);
+    const user = storedToken.user;
+    const { roles, permissions } = this.getAuthorization(user);
+    const accessToken = await this.signAccessToken(
+      user.id,
+      user.username,
+      roles,
+      permissions,
+    );
+
+    return {
+      message: 'Làm mới access token thành công',
+      data: {
+        accessToken,
+        tokenType: 'Bearer',
+        expiresIn: this.getAccessTokenExpiresInSeconds(),
+      },
+    };
+  }
+
+  async logout(refreshToken: string) {
+    const storedToken = await this.validateStoredRefreshToken(refreshToken);
+    storedToken.isRevoked = true;
+    await this.refreshTokenRepository.save(storedToken);
+
+    return {
+      message: 'Đăng xuất thành công',
+      data: null,
     };
   }
 
@@ -266,10 +305,7 @@ export class AuthService {
     };
   }
 
-  async changePassword(
-    userId: number,
-    changePasswordDto: ChangePasswordDto,
-  ) {
+  async changePassword(userId: number, changePasswordDto: ChangePasswordDto) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
     });
@@ -312,11 +348,29 @@ export class AuthService {
     };
   }
 
-  async sendChangeGmailOtp(userId: number) {
+  async sendChangeGmailOtp(userId: number, requestedEmail?: string) {
     const user = await this.findActiveUserById(userId);
     const otp = this.generateOtp();
     const expireMinutes = this.getOtpExpireMinutes();
     const currentEmail = this.normalizeEmail(user.email);
+    const previousOtp = await this.emailOtpRepository.findOne({
+      where: {
+        userId: user.id,
+        email: currentEmail,
+        purpose: CHANGE_GMAIL_PURPOSE,
+        isUsed: false,
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+    const pendingEmail = requestedEmail
+      ? this.normalizeEmail(requestedEmail)
+      : previousOtp?.pendingEmail;
+
+    if (pendingEmail) {
+      await this.assertNewEmailCanBeUsed(user, pendingEmail);
+    }
 
     await this.emailOtpRepository
       .createQueryBuilder()
@@ -330,7 +384,7 @@ export class AuthService {
     const emailOtp = this.emailOtpRepository.create({
       email: currentEmail,
       userId: user.id,
-      pendingEmail: null,
+      pendingEmail: pendingEmail ?? null,
       otpHash: await bcrypt.hash(otp, 10),
       purpose: CHANGE_GMAIL_PURPOSE,
       attempts: 0,
@@ -415,6 +469,15 @@ export class AuthService {
     });
 
     const verifiedOtp = this.assertVerifiedChangeGmailOtp(emailOtp);
+
+    if (
+      verifiedOtp.pendingEmail &&
+      verifiedOtp.pendingEmail !== newEmail
+    ) {
+      throw new BadRequestException(
+        'Email mới không khớp với phiên xác thực OTP',
+      );
+    }
 
     user.email = newEmail;
     await this.userRepository.save(user);
@@ -557,14 +620,175 @@ export class AuthService {
   }
 
   private calculateRefreshTokenExpiresAt(rememberMe: boolean): Date {
-    const now = new Date();
+    const duration = this.getJwtDuration(
+      rememberMe
+        ? 'JWT_REFRESH_REMEMBER_EXPIRES_IN'
+        : 'JWT_REFRESH_EXPIRES_IN',
+      rememberMe ? '30d' : '1d',
+    );
 
-    if (rememberMe) {
-      now.setDate(now.getDate() + 30);
-    } else {
-      now.setDate(now.getDate() + 1);
+    return new Date(Date.now() + this.durationToSeconds(duration) * 1000);
+  }
+
+  private async validateStoredRefreshToken(rawToken: string) {
+    let payload: RefreshTokenPayload;
+
+    try {
+      payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(
+        rawToken,
+        {
+          secret:
+            this.configService.get<string>('JWT_REFRESH_SECRET') ||
+            'vna_refresh_secret_key',
+        },
+      );
+    } catch {
+      throw new UnauthorizedException(
+        'Refresh token không hợp lệ hoặc đã hết hạn',
+      );
     }
 
-    return now;
+    if (
+      payload.type !== 'refresh_token' ||
+      !Number.isInteger(payload.sub) ||
+      payload.sub < 1
+    ) {
+      throw new UnauthorizedException('Refresh token không hợp lệ');
+    }
+
+    const storedTokens = await this.refreshTokenRepository.find({
+      where: {
+        user: {
+          id: payload.sub,
+        },
+      },
+      relations: {
+        user: {
+          userRoles: {
+            role: {
+              rolePermissions: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+
+    let matchedToken: RefreshToken | null = null;
+    for (const storedToken of storedTokens) {
+      if (await bcrypt.compare(rawToken, storedToken.tokenHash)) {
+        matchedToken = storedToken;
+        break;
+      }
+    }
+
+    if (!matchedToken || matchedToken.user?.id !== payload.sub) {
+      throw new UnauthorizedException('Refresh token không tồn tại');
+    }
+
+    if (matchedToken.isRevoked) {
+      throw new UnauthorizedException('Refresh token đã bị thu hồi');
+    }
+
+    if (matchedToken.expiresAt.getTime() <= Date.now()) {
+      throw new UnauthorizedException('Refresh token đã hết hạn');
+    }
+
+    if (!matchedToken.user.isActive) {
+      throw new UnauthorizedException('Tài khoản đã bị khóa');
+    }
+
+    return matchedToken;
+  }
+
+  private getAuthorization(user: User) {
+    const roles = user.userRoles?.map((userRole) => userRole.role.code) ?? [];
+    const permissions = [
+      ...new Set(
+        (user.userRoles ?? []).flatMap((userRole) =>
+          (userRole.role.rolePermissions ?? []).map(
+            (rolePermission) => rolePermission.permission.code,
+          ),
+        ),
+      ),
+    ];
+
+    return { roles, permissions };
+  }
+
+  private signAccessToken(
+    userId: number,
+    username: string,
+    roles: string[],
+    permissions: string[],
+  ) {
+    return this.jwtService.signAsync(
+      {
+        sub: userId,
+        username,
+        roles,
+        permissions,
+      },
+      {
+        secret:
+          this.configService.get<string>('JWT_ACCESS_SECRET') ||
+          'vna_access_secret_key',
+        expiresIn: this.getJwtDuration('JWT_ACCESS_EXPIRES_IN', '15m'),
+      },
+    );
+  }
+
+  private getAccessTokenExpiresInSeconds() {
+    return this.durationToSeconds(
+      this.getJwtDuration('JWT_ACCESS_EXPIRES_IN', '15m'),
+    );
+  }
+
+  private getJwtDuration(
+    key:
+      | 'JWT_ACCESS_EXPIRES_IN'
+      | 'JWT_REFRESH_EXPIRES_IN'
+      | 'JWT_REFRESH_REMEMBER_EXPIRES_IN',
+    fallback: JwtSignOptions['expiresIn'],
+  ): JwtSignOptions['expiresIn'] {
+    const configuredValue = this.configService.get<string>(key)?.trim();
+
+    if (!configuredValue) {
+      return fallback;
+    }
+
+    return /^\d+$/.test(configuredValue)
+      ? Number(configuredValue)
+      : (configuredValue as JwtSignOptions['expiresIn']);
+  }
+
+  private durationToSeconds(duration: JwtSignOptions['expiresIn']) {
+    if (typeof duration === 'number') {
+      return duration;
+    }
+
+    const match = /^(\d+)(s|m|h|d)$/.exec(String(duration));
+    if (!match) {
+      throw new Error('Cấu hình thời hạn JWT không hợp lệ');
+    }
+
+    const value = Number(match[1]);
+    const multipliers: Record<string, number> = {
+      s: 1,
+      m: 60,
+      h: 60 * 60,
+      d: 24 * 60 * 60,
+    };
+    const multiplier = multipliers[match[2]];
+
+    if (!multiplier) {
+      throw new Error('Cấu hình thời hạn JWT không hợp lệ');
+    }
+
+    return value * multiplier;
   }
 }

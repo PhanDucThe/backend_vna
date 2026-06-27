@@ -13,11 +13,16 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, unknown> {
 
     return next.handle().pipe(
       map((response) => {
+        const hasExplicitData =
+          typeof response === 'object' &&
+          response !== null &&
+          Object.prototype.hasOwnProperty.call(response, 'data');
+
         return {
           success: true,
           statusCode: context.switchToHttp().getResponse().statusCode,
           message: response?.message || 'Thành công',
-          data: response?.data ?? response,
+          data: hasExplicitData ? response.data : response,
           timestamp: new Date().toISOString(),
           path: request.url,
         };

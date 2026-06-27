@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
   Injectable,
@@ -21,7 +22,6 @@ import {
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { MODULE_METADATA } from '@nestjs/common/constants';
 import type {} from 'multer';
 import {
   DataSource,
@@ -32,6 +32,8 @@ import {
 
 import {
   LaborAccidentReportSummaryQueryDto,
+  BulkReceiveLaborAccidentReportsDto,
+  BulkRejectLaborAccidentReportsDto,
   ListLaborAccidentReportsQueryDto,
   ListMyLaborAccidentReportsQueryDto,
   SaveLaborAccidentReportDraftDto,
@@ -71,6 +73,10 @@ import { User } from '../entities/user.entity';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { CloudinaryService } from './cloudinary.service';
+import {
+  MANAGEMENT_ROLE_CODES,
+  ROLE_CODES,
+} from '../constants/roles.constant';
 
 const PERIOD_TYPE_LABELS: Record<LaborAccidentReportPeriodType, string> = {
   [LaborAccidentReportPeriodType.FULL_YEAR]: 'Cả năm',
@@ -79,8 +85,9 @@ const PERIOD_TYPE_LABELS: Record<LaborAccidentReportPeriodType, string> = {
 
 const REPORT_STATUS_LABELS: Record<LaborAccidentReportStatus, string> = {
   [LaborAccidentReportStatus.DRAFT]: 'Đang báo cáo',
-  [LaborAccidentReportStatus.SUBMITTED]: 'Đã gửi báo cáo',
+  [LaborAccidentReportStatus.SUBMITTED]: 'Đang chờ duyệt',
   [LaborAccidentReportStatus.RECEIVED]: 'Đã tiếp nhận',
+  [LaborAccidentReportStatus.REJECTED]: 'Từ chối phê duyệt',
 };
 
 type DetailPayload = {
@@ -266,9 +273,13 @@ export class LaborAccidentReportService {
       reportPeriod.id,
     );
 
-    if (existingReport && existingReport.status !== LaborAccidentReportStatus.DRAFT) {
+    if (
+      existingReport &&
+      existingReport.status !== LaborAccidentReportStatus.DRAFT &&
+      existingReport.status !== LaborAccidentReportStatus.REJECTED
+    ) {
       throw new BadRequestException(
-        'Chỉ được cập nhật báo cáo đang trong trạng thái nháp',
+        'Chỉ được cập nhật báo cáo đang trong trạng thái nháp hoặc bị từ chối phê duyệt',
       );
     }
 
@@ -333,12 +344,13 @@ export class LaborAccidentReportService {
     const user = await this.findUser(userId);
     const report = await this.findReportByIdForBusiness(reportId, business.id);
 
-    if (report.status === LaborAccidentReportStatus.RECEIVED) {
-      throw new BadRequestException('Báo cáo đã được Sở tiếp nhận');
-    }
-
-    if (report.status === LaborAccidentReportStatus.SUBMITTED) {
-      throw new BadRequestException('Báo cáo đã được gửi');
+    if (
+      report.status !== LaborAccidentReportStatus.DRAFT &&
+      report.status !== LaborAccidentReportStatus.REJECTED
+    ) {
+      throw new BadRequestException(
+        'Chỉ được gửi báo cáo đang ở trạng thái nháp hoặc bị từ chối',
+      );
     }
 
     this.validateReportReadyToLock(report);
@@ -361,6 +373,7 @@ export class LaborAccidentReportService {
       report.status = LaborAccidentReportStatus.SUBMITTED;
       report.submittedAt = new Date();
       report.submittedByUser = user;
+      report.rejectReason = null;
 
       return manager.save(LaborAccidentReport, report);
     });
@@ -380,12 +393,10 @@ export class LaborAccidentReportService {
     const user = await this.findUser(userId);
     const report = await this.findReportByIdForDepartment(reportId);
 
-    if (report.status === LaborAccidentReportStatus.DRAFT) {
-      throw new BadRequestException('Chỉ được tiếp nhận báo cáo đã được gửi');
-    }
-
-    if (report.status === LaborAccidentReportStatus.RECEIVED) {
-      throw new BadRequestException('Báo cáo đã được Sở tiếp nhận');
+    if (report.status !== LaborAccidentReportStatus.SUBMITTED) {
+      throw new BadRequestException(
+        'Chỉ được tiếp nhận báo cáo đang ở trạng thái đã gửi',
+      );
     }
 
     this.validateReportReadyToLock(report);
@@ -804,6 +815,7 @@ export class LaborAccidentReportService {
 
     report.business = business;
     report.reportPeriod = reportPeriod;
+    report.rejectReason = null;
     report.businessName = business.businessName;
     report.taxCode = business.taxCode;
     report.businessType = business.businessType;
@@ -2264,6 +2276,14 @@ export class LaborAccidentReportService {
         businessType: report.businessType,
         industryCode: report.industryCode,
         industryName: report.industryName,
+        provinceCity: report.business?.provinceCity ?? null,
+        wardCommune: report.business?.wardCommune ?? null,
+        address: report.business?.address ?? null,
+        phone: report.business?.phone ?? null,
+        agencyPhone: report.business?.agencyPhone ?? null,
+        email: report.business?.email ?? null,
+        representativeName: report.business?.representativeName ?? null,
+        representativePhone: report.business?.representativePhone ?? null,
       },
       totalEmployees: Number(report.totalEmployees) || 0,
       femaleEmployees: Number(report.femaleEmployees) || 0,
@@ -2293,6 +2313,7 @@ export class LaborAccidentReportService {
       statusLabel: REPORT_STATUS_LABELS[report.status],
       submittedAt: report.submittedAt,
       receivedAt: report.receivedAt,
+      rejectReason: report.rejectReason ?? null,
       details: includeDetails
         ? report.details?.map((detail) => this.mapDetail(detail)) ?? []
         : undefined,
@@ -2360,11 +2381,106 @@ export class LaborAccidentReportService {
       level: catalog.level,
     };
   }
+
+  async bulkReceiveDepartmentReports(userId: number, reportIds: number[]) {
+    if (!Array.isArray(reportIds) || reportIds.length === 0) {
+      throw new BadRequestException('Danh sách báo cáo không được để trống');
+    }
+
+    const user = await this.findUser(userId);
+    let receivedCount = 0;
+
+    for (const reportId of [...new Set(reportIds)]) {
+      if (!Number.isInteger(reportId) || reportId <= 0) {
+        continue;
+      }
+
+      try {
+        const report = await this.findReportByIdForDepartment(reportId);
+
+        if (report.status !== LaborAccidentReportStatus.SUBMITTED) {
+          continue;
+        }
+
+        this.validateReportReadyToLock(report);
+        report.status = LaborAccidentReportStatus.RECEIVED;
+        report.receivedAt = new Date();
+        report.receivedByUser = user;
+        report.rejectReason = null;
+        await this.reportRepository.save(report);
+        receivedCount += 1;
+      } catch (error) {
+        if (
+          error instanceof NotFoundException ||
+          error instanceof BadRequestException
+        ) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    return {
+      message: `Duyệt thành công ${receivedCount}/${reportIds.length} báo cáo`,
+      success: true,
+    };
+  }
+
+  async bulkRejectDepartmentReports(
+    userId: number,
+    reportIds: number[],
+    rejectReason: string,
+  ) {
+    if (!Array.isArray(reportIds) || reportIds.length === 0) {
+      throw new BadRequestException('Danh sách báo cáo không được để trống');
+    }
+
+    const normalizedReason = rejectReason?.trim();
+    if (!normalizedReason) {
+      throw new BadRequestException('Lý do từ chối không được để trống');
+    }
+
+    await this.findUser(userId);
+    let rejectedCount = 0;
+
+    for (const reportId of [...new Set(reportIds)]) {
+      if (!Number.isInteger(reportId) || reportId <= 0) {
+        continue;
+      }
+
+      try {
+        const report = await this.findReportByIdForDepartment(reportId);
+
+        if (report.status !== LaborAccidentReportStatus.SUBMITTED) {
+          continue;
+        }
+
+        report.status = LaborAccidentReportStatus.REJECTED;
+        report.rejectReason = normalizedReason;
+        report.receivedAt = null;
+        report.receivedByUser = null;
+        await this.reportRepository.save(report);
+        rejectedCount += 1;
+      } catch (error) {
+        if (error instanceof NotFoundException) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    return {
+      message: `Từ chối thành công ${rejectedCount}/${reportIds.length} báo cáo`,
+      success: true,
+    };
+  }
 }
 
 @Controller('labor-accident-reports/admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles(...MANAGEMENT_ROLE_CODES)
 @ApiTags('Báo cáo TNLĐ Sở')
 @ApiBearerAuth('access-token')
 @ApiExtraModels(
@@ -2529,11 +2645,36 @@ export class LaborAccidentReportAdminController {
   getReportDetail(@Param('id', ParseIntPipe) id: number) {
     return this.reportService.getDepartmentReportDetail(id);
   }
+
+  @Post('bulk-receive')
+  @ApiOperation({ summary: 'Duyệt hàng loạt báo cáo TNLĐ' })
+  bulkReceive(
+    @CurrentUser() currentUser: CurrentUserData,
+    @Body() body: BulkReceiveLaborAccidentReportsDto,
+  ) {
+    return this.reportService.bulkReceiveDepartmentReports(
+      currentUser.id,
+      body.ids,
+    );
+  }
+
+  @Post('bulk-reject')
+  @ApiOperation({ summary: 'Từ chối hàng loạt báo cáo TNLĐ' })
+  bulkReject(
+    @CurrentUser() currentUser: CurrentUserData,
+    @Body() body: BulkRejectLaborAccidentReportsDto,
+  ) {
+    return this.reportService.bulkRejectDepartmentReports(
+      currentUser.id,
+      body.ids,
+      body.rejectReason,
+    );
+  }
 }
 
 @Controller('labor-accident-reports/my')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('USER')
+@Roles(ROLE_CODES.EMPLOYEE)
 @ApiTags('Báo cáo TNLĐ doanh nghiệp')
 @ApiBearerAuth('access-token')
 export class LaborAccidentReportBusinessExportController {
@@ -2581,33 +2722,3 @@ export class LaborAccidentReportBusinessExportController {
     sendOfficeExport(response, file);
   }
 }
-
-queueMicrotask(() => {
-  try {
-    const { AppModule } = require('../app.module');
-    const controllers =
-      Reflect.getMetadata(MODULE_METADATA.CONTROLLERS, AppModule) ?? [];
-
-    const extraControllers = [
-      LaborAccidentReportAdminController,
-      LaborAccidentReportBusinessExportController,
-    ];
-    const nextControllers = [...controllers];
-
-    for (const controller of extraControllers) {
-      if (!nextControllers.includes(controller)) {
-        nextControllers.push(controller);
-      }
-    }
-
-    if (nextControllers.length !== controllers.length) {
-      Reflect.defineMetadata(
-        MODULE_METADATA.CONTROLLERS,
-        nextControllers,
-        AppModule,
-      );
-    }
-  } catch {
-    // AppModule metadata is patched only to work around a local write lock.
-  }
-});

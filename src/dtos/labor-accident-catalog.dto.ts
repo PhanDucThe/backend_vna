@@ -55,6 +55,18 @@ export class ListLaborAccidentCatalogsQueryDto {
   isActive?: string;
 }
 
+export class LaborAccidentCatalogOptionsQueryDto {
+  @ApiPropertyOptional({
+    example: LaborAccidentCatalogType.ACCIDENT_CAUSE,
+    enum: LaborAccidentCatalogType,
+  })
+  @IsOptional()
+  @IsIn(Object.values(LaborAccidentCatalogType), {
+    message: 'Loại danh mục không hợp lệ',
+  })
+  type?: LaborAccidentCatalogType;
+}
+
 export class CreateLaborAccidentCatalogDto {
   @ApiProperty({
     example: LaborAccidentCatalogType.INJURY_FACTOR,

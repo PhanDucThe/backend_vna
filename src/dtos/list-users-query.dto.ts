@@ -32,7 +32,10 @@ export class ListUsersQueryDto {
   @IsString()
   email?: string;
 
-  @ApiPropertyOptional({ example: 'USER', description: 'Ma hoac ten vai tro' })
+  @ApiPropertyOptional({
+    example: 'USER',
+    description: 'Chấp nhận ADMIN, USER, Role1, Role2, Role3 hoặc tên vai trò',
+  })
   @IsOptional()
   @IsString()
   role?: string;

@@ -20,7 +20,12 @@ import {
 
 import { Roles } from '../decorators/roles.decorator';
 import {
+  MANAGEMENT_ROLE_CODES,
+  ROLE_CODES,
+} from '../constants/roles.constant';
+import {
   CreateLaborAccidentCatalogDto,
+  LaborAccidentCatalogOptionsQueryDto,
   ListLaborAccidentCatalogsQueryDto,
   UpdateLaborAccidentCatalogDto,
   UpdateLaborAccidentCatalogStatusDto,
@@ -31,14 +36,13 @@ import {
   LaborAccidentCatalogListResponseDto,
   LaborAccidentCatalogResponseDto,
 } from '../dtos/swagger-response.dto';
-import { LaborAccidentCatalogType } from '../entities/labor-accident-catalog.entity';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { LaborAccidentCatalogService } from '../services/labor-accident-catalog.service';
 
 @Controller('labor-accident-catalogs')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles(...MANAGEMENT_ROLE_CODES)
 @ApiTags('Danh mục TNLĐ')
 @ApiBearerAuth('access-token')
 @ApiExtraModels(
@@ -76,7 +80,7 @@ export class LaborAccidentCatalogController {
   }
 
   @Get('types')
-  @Roles('ADMIN', 'USER')
+  @Roles(...MANAGEMENT_ROLE_CODES, ROLE_CODES.EMPLOYEE)
   @ApiOperation({
     summary: 'Loại danh mục tai nạn lao động',
   })
@@ -89,7 +93,7 @@ export class LaborAccidentCatalogController {
   }
 
   @Get('options')
-  @Roles('ADMIN', 'USER')
+  @Roles(...MANAGEMENT_ROLE_CODES, ROLE_CODES.EMPLOYEE)
   @ApiOperation({
     summary: 'Tùy chọn danh mục tai nạn lao động đang sử dụng',
   })
@@ -97,8 +101,8 @@ export class LaborAccidentCatalogController {
     description: 'Danh sách option danh mục đang hoạt động',
     type: ApiSuccessResponseDto,
   })
-  getCatalogOptions(@Query('type') type?: LaborAccidentCatalogType) {
-    return this.catalogService.getCatalogOptions(type);
+  getCatalogOptions(@Query() query: LaborAccidentCatalogOptionsQueryDto) {
+    return this.catalogService.getCatalogOptions(query.type);
   }
 
   @Get(':id')

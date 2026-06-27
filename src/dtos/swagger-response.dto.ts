@@ -421,6 +421,30 @@ export class LaborAccidentReportBusinessSummaryResponseDto {
     nullable: true,
   })
   industryName!: string | null;
+
+  @ApiProperty({ example: 'Thành phố Hồ Chí Minh', nullable: true })
+  provinceCity!: string | null;
+
+  @ApiProperty({ example: 'Phường Bến Nghé', nullable: true })
+  wardCommune!: string | null;
+
+  @ApiProperty({ example: '123 Lê Lợi', nullable: true })
+  address!: string | null;
+
+  @ApiProperty({ example: '02812345678', nullable: true })
+  phone!: string | null;
+
+  @ApiProperty({ example: '02887654321', nullable: true })
+  agencyPhone!: string | null;
+
+  @ApiProperty({ example: 'contact@example.com', nullable: true })
+  email!: string | null;
+
+  @ApiProperty({ example: 'Nguyễn Văn A', nullable: true })
+  representativeName!: string | null;
+
+  @ApiProperty({ example: '0901234567', nullable: true })
+  representativePhone!: string | null;
 }
 
 export class LaborAccidentReportCatalogSummaryResponseDto {
@@ -639,6 +663,9 @@ export class LaborAccidentReportResponseDto {
   @ApiProperty({ example: null, nullable: true })
   receivedAt!: string | null;
 
+  @ApiProperty({ example: null, nullable: true })
+  rejectReason!: string | null;
+
   @ApiProperty({ type: [LaborAccidentReportDetailResponseDto] })
   details!: LaborAccidentReportDetailResponseDto[] | undefined;
 
@@ -698,4 +725,18 @@ export class LoginResponseDto {
 
   @ApiProperty({ type: LoginUserResponseDto })
   user!: LoginUserResponseDto;
+}
+
+export class RefreshAccessTokenResponseDto {
+  @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
+  accessToken!: string;
+
+  @ApiProperty({ example: 'Bearer' })
+  tokenType!: string;
+
+  @ApiProperty({
+    example: 900,
+    description: 'Thời gian sống của access token tính bằng giây',
+  })
+  expiresIn!: number;
 }

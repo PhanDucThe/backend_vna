@@ -66,7 +66,7 @@ async function bootstrap() {
       [
         'Tai lieu API cho he thong VNA.',
         'Tat ca response thanh cong duoc boc trong format: success, statusCode, message, data, timestamp, path.',
-        'Cac API quan tri can dang nhap bang tai khoan ADMIN va truyen Bearer token.',
+        'Các API quản trị cần đăng nhập bằng tài khoản Manager/CEO và truyền Bearer token.',
       ].join('\n'),
     )
     .setVersion('1.0.0')
@@ -80,8 +80,10 @@ async function bootstrap() {
       'access-token',
     )
     .addTag('Auth', 'Dang nhap, quen mat khau, doi mat khau, doi Gmail')
-    .addTag('Users', 'Quan ly nguoi dung cho ADMIN')
-    .addTag('Businesses', 'Quan ly doanh nghiep cho ADMIN')
+    .addTag('Users', 'Quản lý người dùng cho Manager/CEO')
+    .addTag('Businesses', 'Quản lý doanh nghiệp cho Manager/CEO')
+    .addTag('Roles', 'Quản lý vai trò và gán quyền')
+    .addTag('Permissions', 'Danh sách quyền dạng Group - Component')
     .build();
 
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
@@ -92,7 +94,7 @@ async function bootstrap() {
     customSiteTitle: 'VNA Backend API Docs',
   });
 
-  await app.listen(process.env.APP_PORT ?? 3000);
+  await app.listen(process.env.APP_PORT ?? 3000, '0.0.0.0');
 }
 
 bootstrap();

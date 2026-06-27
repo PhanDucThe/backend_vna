@@ -50,12 +50,18 @@ export class UpdateUserDto {
   @IsString()
   roleId?: string;
 
-  @ApiPropertyOptional({ example: 'USER' })
+  @ApiPropertyOptional({
+    example: 'USER',
+    description: 'Chấp nhận ADMIN, USER, Role1, Role2 hoặc Role3',
+  })
   @IsOptional()
   @IsString()
   roleCode?: string;
 
-  @ApiPropertyOptional({ example: 'USER' })
+  @ApiPropertyOptional({
+    example: 'USER',
+    description: 'Chấp nhận ADMIN, USER, Role1, Role2 hoặc Role3',
+  })
   @IsOptional()
   @IsString()
   role?: string;

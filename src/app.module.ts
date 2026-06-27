@@ -6,6 +6,8 @@ import { PassportModule } from '@nestjs/passport';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import { UserRole } from './entities/user-role.entity';
+import { Permission } from './entities/permission.entity';
+import { RolePermission } from './entities/role-permission.entity';
 import { BusinessAttachment } from './entities/business-attachment.entity';
 import { Business } from './entities/business.entity';
 import { LaborAccidentCatalog } from './entities/labor-accident-catalog.entity';
@@ -27,16 +29,24 @@ import { BusinessController } from './controllers/business.controller';
 import { BusinessService } from './services/business.service';
 import { LaborAccidentCatalogSeedService } from './services/labor-accident-catalog-seed.service';
 import { LaborAccidentCatalogService } from './services/labor-accident-catalog.service';
-import { LaborAccidentReportService } from './services/labor-accident-report.service';
+import {
+  LaborAccidentReportAdminController,
+  LaborAccidentReportBusinessExportController,
+  LaborAccidentReportService,
+} from './services/labor-accident-report.service';
 import { LaborAccidentReportPeriodService } from './services/labor-accident-report-period.service';
 import { UserController } from './controllers/user.controller';
+import { RoleController } from './controllers/role.controller';
 import { UserService } from './services/user.service';
+import { RoleService } from './services/role.service';
 import { CloudinaryService } from './services/cloudinary.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { EmailOtp } from './entities/email-otp.entity';
 import { MailService } from './services/mail.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
+import { SelfOrUserManagementGuard } from './guards/self-or-user-management.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -61,6 +71,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
           User,
           Role,
           UserRole,
+          Permission,
+          RolePermission,
           RefreshToken,
           EmailOtp,
           Business,
@@ -80,6 +92,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       User,
       Role,
       UserRole,
+      Permission,
+      RolePermission,
       RefreshToken,
       EmailOtp,
       Business,
@@ -94,7 +108,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const expires = configService.get<string>('JWT_EXPIRES_IN');
+        const expires =
+          configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '15m';
         const expiresIn = expires
           ? isNaN(Number(expires))
             ? (expires as any)
@@ -102,7 +117,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
           : undefined;
 
         return {
-          secret: configService.get<string>('JWT_SECRET'),
+          secret:
+            configService.get<string>('JWT_ACCESS_SECRET') ||
+            'vna_access_secret_key',
           signOptions: {
             expiresIn,
           },
@@ -113,16 +130,20 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   controllers: [
     AuthController,
     UserController,
+    RoleController,
     BusinessProfileController,
     BusinessRegistrationController,
     LaborAccidentCatalogController,
     LaborAccidentReportController,
+    LaborAccidentReportAdminController,
+    LaborAccidentReportBusinessExportController,
     LaborAccidentReportPeriodController,
     BusinessController,
   ],
   providers: [
     AuthService,
     UserService,
+    RoleService,
     BusinessService,
     LaborAccidentCatalogService,
     LaborAccidentReportService,
@@ -131,6 +152,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     MailService,
     JwtAuthGuard,
     RolesGuard,
+    PermissionsGuard,
+    SelfOrUserManagementGuard,
     JwtStrategy,
     RoleSeedService,
     UserSeedService,

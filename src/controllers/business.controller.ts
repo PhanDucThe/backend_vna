@@ -28,6 +28,12 @@ import { memoryStorage } from 'multer';
 import type {} from 'multer';
 
 import { Roles } from '../decorators/roles.decorator';
+import {
+  MANAGEMENT_ROLE_CODES,
+  ROLE_CODES,
+} from '../constants/roles.constant';
+import { CurrentUser } from '../decorators/current-user.decorator';
+import type { CurrentUserData } from '../decorators/current-user.decorator';
 import { CreateBusinessDto } from '../dtos/create-business.dto';
 import { ListBusinessesQueryDto } from '../dtos/list-businesses-query.dto';
 import { UpdateBusinessDto } from '../dtos/update-business.dto';
@@ -44,7 +50,7 @@ import {
 
 @Controller('businesses')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles(...MANAGEMENT_ROLE_CODES)
 @ApiTags('Doanh nghiệp')
 @ApiBearerAuth('access-token')
 @ApiExtraModels(
@@ -372,11 +378,13 @@ export class BusinessController {
   }
 
   @Delete(':id/attachments/:attachmentId')
+  @Roles(...MANAGEMENT_ROLE_CODES, ROLE_CODES.EMPLOYEE)
   @ApiOperation({ summary: 'Xóa file đính kèm của doanh nghiệp' })
   deleteAttachment(
     @Param('id', ParseIntPipe) id: number,
     @Param('attachmentId', ParseIntPipe) attachmentId: number,
+    @CurrentUser() currentUser: CurrentUserData,
   ) {
-    return this.businessService.deleteAttachment(id, attachmentId);
+    return this.businessService.deleteAttachment(id, attachmentId, currentUser);
   }
 }

@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { Role } from '../entities/role.entity';
 import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/user-role.entity';
+import { ROLE_CODES } from '../constants/roles.constant';
 
 @Injectable()
 export class UserSeedService implements OnApplicationBootstrap {
@@ -27,13 +28,13 @@ export class UserSeedService implements OnApplicationBootstrap {
   private async createDefaultUsers() {
     const adminRole = await this.roleRepository.findOne({
       where: {
-        code: 'ADMIN',
+        code: ROLE_CODES.MANAGER,
       },
     });
 
     const userRole = await this.roleRepository.findOne({
       where: {
-        code: 'USER',
+        code: ROLE_CODES.EMPLOYEE,
       },
     });
 
@@ -47,7 +48,7 @@ export class UserSeedService implements OnApplicationBootstrap {
       fullName: 'Quản trị viên',
       email: 'maytinh519gmail.com',
       role: adminRole,
-      position: 'Admin hệ thống',
+      position: 'Manager',
     });
 
     await this.createUserIfNotExists({
@@ -56,7 +57,7 @@ export class UserSeedService implements OnApplicationBootstrap {
       fullName: 'Người dùng mẫu',
       email: 'user@gmail.com',
       role: userRole,
-      position: 'Khách hàng',
+      position: 'Employee',
     });
   }
 
@@ -69,9 +70,7 @@ export class UserSeedService implements OnApplicationBootstrap {
     position: string;
   }) {
     const existedUser = await this.userRepository.findOne({
-      where: {
-        username: data.username,
-      },
+      where: [{ username: data.username }, { email: data.email }],
     });
 
     if (existedUser) {

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -28,6 +29,11 @@ import { EmailOtp } from '../entities/email-otp.entity';
 import { Role } from '../entities/role.entity';
 import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/user-role.entity';
+import {
+  MANAGEMENT_ROLE_CODES,
+  ROLE_CODES,
+} from '../constants/roles.constant';
+import type { CurrentUserData } from '../decorators/current-user.decorator';
 import { CloudinaryService } from './cloudinary.service';
 import { MailService } from './mail.service';
 
@@ -186,11 +192,22 @@ export class BusinessService {
     };
   }
 
-  async sendBusinessProfileEmailOtp(userId: number) {
+  async sendBusinessProfileEmailOtp(userId: number, requestedEmail?: string) {
     const business = await this.findBusinessByAccountUserId(userId);
     const currentEmail = this.getCurrentBusinessAccountEmail(business);
     const otp = this.generateOtp();
     const expireMinutes = this.getOtpExpireMinutes();
+    const previousOtp = await this.findLatestBusinessProfileEmailOtp(
+      userId,
+      currentEmail,
+    );
+    const pendingEmail = requestedEmail
+      ? this.normalizeRequiredEmail(requestedEmail)
+      : previousOtp?.pendingEmail;
+
+    if (pendingEmail) {
+      await this.assertBusinessProfileEmailCanBeUsed(userId, pendingEmail);
+    }
 
     await this.emailOtpRepository
       .createQueryBuilder()
@@ -206,7 +223,7 @@ export class BusinessService {
     const emailOtp = this.emailOtpRepository.create({
       email: currentEmail,
       userId,
-      pendingEmail: null,
+      pendingEmail: pendingEmail ?? null,
       otpHash: await bcrypt.hash(otp, 10),
       purpose: BUSINESS_PROFILE_EMAIL_CHANGE_PURPOSE,
       attempts: 0,
@@ -294,6 +311,15 @@ export class BusinessService {
           await this.findLatestBusinessProfileEmailOtp(userId, currentEmail),
         )
       : null;
+
+    if (
+      verifiedOtp?.pendingEmail &&
+      verifiedOtp.pendingEmail !== nextEmail
+    ) {
+      throw new BadRequestException(
+        'Email mới không khớp với phiên xác thực OTP',
+      );
+    }
 
     if (willChangeEmail && nextEmail) {
       await this.assertBusinessProfileEmailCanBeUsed(userId, nextEmail);
@@ -401,6 +427,14 @@ export class BusinessService {
 
   async sendBusinessRegistrationOtp(body: SendBusinessRegistrationOtpDto) {
     const email = this.normalizeRequiredEmail(body.email);
+    const taxCode = body.taxCode
+      ? this.normalizeTaxCode(body.taxCode)
+      : undefined;
+
+    if (taxCode) {
+      await this.validateUniqueTaxCode(taxCode);
+      await this.validateUniqueBusinessAccount(taxCode);
+    }
 
     await this.assertRegistrationEmailCanBeUsed(email);
 
@@ -454,6 +488,7 @@ export class BusinessService {
           : 'Mã OTP đã được gửi về email',
       data: {
         email,
+        taxCode: taxCode ?? null,
         expiresInSeconds: expireMinutes * 60,
         mailMode: sent.mode,
         messageId: sent.messageId || null,
@@ -611,12 +646,12 @@ export class BusinessService {
   ) {
     const userRole = await tem.findOne(Role, {
       where: {
-        code: 'USER',
+        code: ROLE_CODES.EMPLOYEE,
       },
     });
 
     if (!userRole) {
-      throw new BadRequestException('Chua cau hinh vai tro USER');
+      throw new BadRequestException('Chưa cấu hình vai trò Employee');
     }
 
     const email =
@@ -853,13 +888,35 @@ export class BusinessService {
     };
   }
 
-  async deleteAttachment(businessId: number, attachmentId: number) {
+  async deleteAttachment(
+    businessId: number,
+    attachmentId: number,
+    currentUser: CurrentUserData,
+  ) {
     const attachment = await this.attachmentRepository.findOne({
       where: { id: attachmentId, business: { id: businessId } },
+      relations: {
+        business: {
+          accountUser: true,
+        },
+      },
     });
 
     if (!attachment) {
       throw new NotFoundException('Không tìm thấy file đính kèm');
+    }
+
+    const isManagementUser = currentUser.roles.some((role) =>
+      MANAGEMENT_ROLE_CODES.includes(
+        role as (typeof MANAGEMENT_ROLE_CODES)[number],
+      ),
+    );
+
+    if (
+      !isManagementUser &&
+      attachment.business.accountUser?.id !== currentUser.id
+    ) {
+      throw new ForbiddenException('Bạn không có quyền xóa file này');
     }
 
     await this.attachmentRepository.remove(attachment);
@@ -1130,12 +1187,12 @@ export class BusinessService {
   ) {
     const userRole = await this.roleRepository.findOne({
       where: {
-        code: 'USER',
+        code: ROLE_CODES.EMPLOYEE,
       },
     });
 
     if (!userRole) {
-      throw new BadRequestException('Chưa cấu hình vai trò USER');
+      throw new BadRequestException('Chưa cấu hình vai trò Employee');
     }
 
     const email =

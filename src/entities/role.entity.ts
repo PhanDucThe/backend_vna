@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 
 import { UserRole } from './user-role.entity';
+import { RolePermission } from './role-permission.entity';
 
 @Entity('roles')
 export class Role {
@@ -25,8 +26,14 @@ export class Role {
   })
   name!: string;
 
+  @Column({ name: 'is_system', default: false })
+  isSystem!: boolean;
+
   @OneToMany(() => UserRole, (userRole) => userRole.role)
   userRoles!: UserRole[];
+
+  @OneToMany(() => RolePermission, (rolePermission) => rolePermission.role)
+  rolePermissions!: RolePermission[];
 
   @CreateDateColumn({
     name: 'created_at',

@@ -29,12 +29,16 @@ import { memoryStorage } from 'multer';
 import type {} from 'multer';
 
 import { Roles } from '../decorators/roles.decorator';
+import { Permissions } from '../decorators/permissions.decorator';
+import { MANAGEMENT_ROLE_CODES } from '../constants/roles.constant';
 import { CreateUserDto } from '../dtos/create-user.dto';
 import { ListUsersQueryDto } from '../dtos/list-users-query.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
 import { UserService } from '../services/user.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
+import { PermissionsGuard } from '../guards/permissions.guard';
+import { SelfOrUserManagementGuard } from '../guards/self-or-user-management.guard';
 import * as currentUserDecorator from '../decorators/current-user.decorator';
 import {
   ApiErrorResponseDto,
@@ -55,12 +59,14 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(...MANAGEMENT_ROLE_CODES)
+  @Permissions('ADMIN_C_USER_VIEW')
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Danh sach nguoi dung',
-    description: 'Chỉ ADMIN được xem. Tài khoản ADMIN không nằm trong danh sách.',
+    description:
+      'Manager/CEO được xem. Response trả role theo contract ADMIN/USER của frontend.',
   })
   @ApiOkResponse({
     description: 'Danh sach user kem phan trang',
@@ -108,11 +114,15 @@ export class UserController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(...MANAGEMENT_ROLE_CODES)
+  @Permissions('ADMIN_C_USER_VIEW')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Chi tiet nguoi dung cho man hinh quan ly' })
-  @ApiResponse({ status: 404, description: 'Không tìm thấy người dùng hoặc người dùng là ADMIN' })
+  @ApiResponse({
+    status: 404,
+    description: 'Không tìm thấy người dùng',
+  })
   @ApiOkResponse({
     description: 'Chi tiet user de do vao form cap nhat',
     schema: {
@@ -135,13 +145,14 @@ export class UserController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(...MANAGEMENT_ROLE_CODES)
+  @Permissions('ADMIN_C_USER_CREATE')
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Thêm mới người dùng',
     description:
-      'Chỉ ADMIN được tạo người dùng thường. Không cho gán role ADMIN tại màn quản lý người dùng. Dùng multipart/form-data nếu cần upload avatar.',
+      'Chấp nhận role ADMIN/USER hoặc Role1/Role2/Role3. Chỉ CEO được gán role quản trị.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -204,13 +215,14 @@ export class UserController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, SelfOrUserManagementGuard)
+  @Roles(...MANAGEMENT_ROLE_CODES)
+  @Permissions('ADMIN_C_USER_UPDATE')
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Cập nhật người dùng',
     description:
-      'Dùng multipart/form-data nếu cần upload avatar. Field file phải tên là avatar.',
+      'Cho phép tự cập nhật các field hồ sơ an toàn. Khi cập nhật user khác vẫn yêu cầu role và permission quản trị. Dùng multipart/form-data với field file tên avatar.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -274,13 +286,14 @@ export class UserController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(...MANAGEMENT_ROLE_CODES)
+  @Permissions('ADMIN_C_USER_DELETE')
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Xóa người dùng',
     description:
-      'Chỉ ADMIN được xóa tài khoản người dùng thường. Không cho xóa tài khoản ADMIN.',
+      'Chỉ Manager/CEO được xóa tài khoản người dùng thường. Không cho xóa tài khoản quản trị.',
   })
   @ApiOkResponse({
     description: 'Xóa người dùng thành công',
