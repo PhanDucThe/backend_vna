@@ -28,6 +28,8 @@ import { memoryStorage } from 'multer';
 import type {} from 'multer';
 
 import { Roles } from '../decorators/roles.decorator';
+import { CurrentUser } from '../decorators/current-user.decorator';
+import type { CurrentUserData } from '../decorators/current-user.decorator';
 import { CreateBusinessDto } from '../dtos/create-business.dto';
 import { ListBusinessesQueryDto } from '../dtos/list-businesses-query.dto';
 import { UpdateBusinessDto } from '../dtos/update-business.dto';
@@ -372,11 +374,13 @@ export class BusinessController {
   }
 
   @Delete(':id/attachments/:attachmentId')
+  @Roles('ADMIN', 'USER')
   @ApiOperation({ summary: 'Xóa file đính kèm của doanh nghiệp' })
   deleteAttachment(
     @Param('id', ParseIntPipe) id: number,
     @Param('attachmentId', ParseIntPipe) attachmentId: number,
+    @CurrentUser() currentUser: CurrentUserData,
   ) {
-    return this.businessService.deleteAttachment(id, attachmentId);
+    return this.businessService.deleteAttachment(id, attachmentId, currentUser);
   }
 }

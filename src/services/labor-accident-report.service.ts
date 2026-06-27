@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
   Injectable,
@@ -79,8 +80,9 @@ const PERIOD_TYPE_LABELS: Record<LaborAccidentReportPeriodType, string> = {
 
 const REPORT_STATUS_LABELS: Record<LaborAccidentReportStatus, string> = {
   [LaborAccidentReportStatus.DRAFT]: 'Đang báo cáo',
-  [LaborAccidentReportStatus.SUBMITTED]: 'Đã gửi báo cáo',
+  [LaborAccidentReportStatus.SUBMITTED]: 'Đang chờ duyệt',
   [LaborAccidentReportStatus.RECEIVED]: 'Đã tiếp nhận',
+  [LaborAccidentReportStatus.REJECTED]: 'Từ chối phê duyệt',
 };
 
 type DetailPayload = {
@@ -266,9 +268,13 @@ export class LaborAccidentReportService {
       reportPeriod.id,
     );
 
-    if (existingReport && existingReport.status !== LaborAccidentReportStatus.DRAFT) {
+    if (
+      existingReport &&
+      existingReport.status !== LaborAccidentReportStatus.DRAFT &&
+      existingReport.status !== LaborAccidentReportStatus.REJECTED
+    ) {
       throw new BadRequestException(
-        'Chỉ được cập nhật báo cáo đang trong trạng thái nháp',
+        'Chỉ được cập nhật báo cáo đang trong trạng thái nháp hoặc bị từ chối phê duyệt',
       );
     }
 
@@ -361,6 +367,7 @@ export class LaborAccidentReportService {
       report.status = LaborAccidentReportStatus.SUBMITTED;
       report.submittedAt = new Date();
       report.submittedByUser = user;
+      report.rejectReason = null;
 
       return manager.save(LaborAccidentReport, report);
     });
@@ -386,6 +393,10 @@ export class LaborAccidentReportService {
 
     if (report.status === LaborAccidentReportStatus.RECEIVED) {
       throw new BadRequestException('Báo cáo đã được Sở tiếp nhận');
+    }
+
+    if (report.status === LaborAccidentReportStatus.REJECTED) {
+      throw new BadRequestException('Báo cáo đã bị từ chối phê duyệt');
     }
 
     this.validateReportReadyToLock(report);
@@ -804,6 +815,7 @@ export class LaborAccidentReportService {
 
     report.business = business;
     report.reportPeriod = reportPeriod;
+    report.rejectReason = null;
     report.businessName = business.businessName;
     report.taxCode = business.taxCode;
     report.businessType = business.businessType;
@@ -2264,6 +2276,14 @@ export class LaborAccidentReportService {
         businessType: report.businessType,
         industryCode: report.industryCode,
         industryName: report.industryName,
+        provinceCity: report.business?.provinceCity ?? null,
+        wardCommune: report.business?.wardCommune ?? null,
+        address: report.business?.address ?? null,
+        phone: report.business?.phone ?? null,
+        agencyPhone: report.business?.agencyPhone ?? null,
+        email: report.business?.email ?? null,
+        representativeName: report.business?.representativeName ?? null,
+        representativePhone: report.business?.representativePhone ?? null,
       },
       totalEmployees: Number(report.totalEmployees) || 0,
       femaleEmployees: Number(report.femaleEmployees) || 0,
@@ -2293,6 +2313,7 @@ export class LaborAccidentReportService {
       statusLabel: REPORT_STATUS_LABELS[report.status],
       submittedAt: report.submittedAt,
       receivedAt: report.receivedAt,
+      rejectReason: report.rejectReason || null,
       details: includeDetails
         ? report.details?.map((detail) => this.mapDetail(detail)) ?? []
         : undefined,
@@ -2358,6 +2379,63 @@ export class LaborAccidentReportService {
       code: catalog.code,
       name: catalog.name,
       level: catalog.level,
+    };
+  }
+
+  async bulkReceiveDepartmentReports(userId: number, reportIds: number[]) {
+    const user = await this.findUser(userId);
+    const results: LaborAccidentReport[] = [];
+    for (const id of reportIds) {
+      try {
+        const report = await this.findReportByIdForDepartment(id);
+        if (report.status === LaborAccidentReportStatus.DRAFT) {
+          continue;
+        }
+        if (report.status === LaborAccidentReportStatus.RECEIVED) {
+          continue;
+        }
+        if (report.status === LaborAccidentReportStatus.REJECTED) {
+          continue;
+        }
+        report.status = LaborAccidentReportStatus.RECEIVED;
+        report.receivedAt = new Date();
+        report.receivedByUser = user;
+        const saved = await this.reportRepository.save(report);
+        results.push(saved);
+      } catch (err) {
+        console.error(`Error bulk receiving report ${id}:`, err);
+      }
+    }
+    return {
+      message: `Duyệt thành công ${results.length}/${reportIds.length} báo cáo`,
+      success: true,
+    };
+  }
+
+  async bulkRejectDepartmentReports(userId: number, reportIds: number[], rejectReason: string) {
+    const results: LaborAccidentReport[] = [];
+    for (const id of reportIds) {
+      try {
+        const report = await this.findReportByIdForDepartment(id);
+        if (
+          report.status === LaborAccidentReportStatus.DRAFT ||
+          report.status === LaborAccidentReportStatus.REJECTED
+        ) {
+          continue;
+        }
+        report.status = LaborAccidentReportStatus.REJECTED;
+        report.rejectReason = rejectReason;
+        report.receivedAt = null;
+        report.receivedByUser = null;
+        const saved = await this.reportRepository.save(report);
+        results.push(saved);
+      } catch (err) {
+        console.error(`Error bulk rejecting report ${id}:`, err);
+      }
+    }
+    return {
+      message: `Từ chối thành công ${results.length}/${reportIds.length} báo cáo`,
+      success: true,
     };
   }
 }
@@ -2528,6 +2606,28 @@ export class LaborAccidentReportAdminController {
   })
   getReportDetail(@Param('id', ParseIntPipe) id: number) {
     return this.reportService.getDepartmentReportDetail(id);
+  }
+
+  @Post('bulk-receive')
+  @ApiOperation({
+    summary: 'Duyệt hàng loạt báo cáo TNLĐ',
+  })
+  bulkReceive(
+    @CurrentUser() currentUser: CurrentUserData,
+    @Body() body: { ids: number[] },
+  ) {
+    return this.reportService.bulkReceiveDepartmentReports(currentUser.id, body.ids);
+  }
+
+  @Post('bulk-reject')
+  @ApiOperation({
+    summary: 'Từ chối hàng loạt báo cáo TNLĐ',
+  })
+  bulkReject(
+    @CurrentUser() currentUser: CurrentUserData,
+    @Body() body: { ids: number[]; rejectReason: string },
+  ) {
+    return this.reportService.bulkRejectDepartmentReports(currentUser.id, body.ids, body.rejectReason);
   }
 }
 

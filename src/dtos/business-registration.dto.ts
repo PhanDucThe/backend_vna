@@ -1,5 +1,5 @@
 import { ApiProperty, OmitType } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, Matches } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
 import { CreateBusinessDto } from './create-business.dto';
 
@@ -11,6 +11,15 @@ export class SendBusinessRegistrationOtpDto {
   @IsNotEmpty({ message: 'Email không được để trống' })
   @IsEmail({}, { message: 'Email không hợp lệ' })
   email!: string;
+
+  @ApiProperty({
+    example: '0312345678',
+    description: 'Mã số thuế của doanh nghiệp để kiểm tra trùng',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  taxCode?: string;
 }
 
 export class VerifyBusinessRegistrationOtpDto extends SendBusinessRegistrationOtpDto {
