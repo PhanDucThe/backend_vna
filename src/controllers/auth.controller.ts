@@ -7,6 +7,7 @@ import {
   Ip,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -143,8 +144,11 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Gui OTP doi Gmail cho user dang dang nhap' })
   @ApiOkResponse({ description: 'Gui OTP thanh cong', type: ApiSuccessResponseDto })
-  sendChangeGmailOtp(@CurrentUser() currentUser: CurrentUserData) {
-    return this.authService.sendChangeGmailOtp(currentUser.id);
+  sendChangeGmailOtp(
+    @CurrentUser() currentUser: CurrentUserData,
+    @Query('newEmail') newEmail?: string,
+  ) {
+    return this.authService.sendChangeGmailOtp(currentUser.id, newEmail);
   }
 
   @Post('change-gmail/verify-otp')

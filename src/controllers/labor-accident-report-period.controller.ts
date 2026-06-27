@@ -52,6 +52,7 @@ export class LaborAccidentReportPeriodController {
   ) {}
 
   @Get()
+  @Roles('ADMIN', 'USER')
   @ApiOperation({
     summary: 'Danh sách cấu hình kỳ báo cáo TNLĐ',
     description:

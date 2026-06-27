@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Patch,
   Post,
+  Query,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -83,8 +84,14 @@ export class BusinessProfileController {
     description: 'Gui OTP thanh cong',
     type: ApiSuccessResponseDto,
   })
-  sendEmailChangeOtp(@CurrentUser() currentUser: CurrentUserData) {
-    return this.businessService.sendBusinessProfileEmailOtp(currentUser.id);
+  sendEmailChangeOtp(
+    @CurrentUser() currentUser: CurrentUserData,
+    @Query('newEmail') newEmail?: string,
+  ) {
+    return this.businessService.sendBusinessProfileEmailOtp(
+      currentUser.id,
+      newEmail,
+    );
   }
 
   @Post('email/verify-otp')

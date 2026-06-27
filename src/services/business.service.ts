@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -30,6 +31,7 @@ import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/user-role.entity';
 import { CloudinaryService } from './cloudinary.service';
 import { MailService } from './mail.service';
+import type { CurrentUserData } from '../decorators/current-user.decorator';
 
 const DEFAULT_BUSINESS_ACCOUNT_PASSWORD = '12345678';
 const BUSINESS_REGISTRATION_PURPOSE = 'BUSINESS_REGISTRATION';
@@ -186,8 +188,12 @@ export class BusinessService {
     };
   }
 
-  async sendBusinessProfileEmailOtp(userId: number) {
+  async sendBusinessProfileEmailOtp(userId: number, newEmail?: string) {
     const business = await this.findBusinessByAccountUserId(userId);
+    if (newEmail) {
+      const normalizedNewEmail = this.normalizeRequiredEmail(newEmail);
+      await this.assertBusinessProfileEmailCanBeUsed(userId, normalizedNewEmail);
+    }
     const currentEmail = this.getCurrentBusinessAccountEmail(business);
     const otp = this.generateOtp();
     const expireMinutes = this.getOtpExpireMinutes();
@@ -403,6 +409,12 @@ export class BusinessService {
     const email = this.normalizeRequiredEmail(body.email);
 
     await this.assertRegistrationEmailCanBeUsed(email);
+
+    if (body.taxCode) {
+      const taxCode = this.normalizeTaxCode(body.taxCode);
+      await this.validateUniqueTaxCode(taxCode);
+      await this.validateUniqueBusinessAccount(taxCode);
+    }
 
     const otp = this.generateOtp();
     const expireMinutes = this.getOtpExpireMinutes();
@@ -853,13 +865,34 @@ export class BusinessService {
     };
   }
 
-  async deleteAttachment(businessId: number, attachmentId: number) {
+  async deleteAttachment(
+    businessId: number,
+    attachmentId: number,
+    currentUser: CurrentUserData,
+  ) {
     const attachment = await this.attachmentRepository.findOne({
       where: { id: attachmentId, business: { id: businessId } },
+      relations: {
+        business: {
+          accountUser: true,
+        },
+      },
     });
 
     if (!attachment) {
       throw new NotFoundException('Không tìm thấy file đính kèm');
+    }
+
+    // Ownership check: Business (USER role) accounts can only delete their own attachments
+    const userRoles = currentUser.roles || [];
+    const isAdmin = userRoles.includes('ADMIN');
+    if (!isAdmin) {
+      if (
+        !attachment.business.accountUser ||
+        attachment.business.accountUser.id !== currentUser.id
+      ) {
+        throw new ForbiddenException('Bạn không có quyền xóa file này');
+      }
     }
 
     await this.attachmentRepository.remove(attachment);

@@ -20,6 +20,7 @@ export enum LaborAccidentReportStatus {
   DRAFT = 'DRAFT',
   SUBMITTED = 'SUBMITTED',
   RECEIVED = 'RECEIVED',
+  REJECTED = 'REJECTED',
 }
 
 @Entity('labor_accident_reports')
@@ -284,6 +285,13 @@ export class LaborAccidentReport {
     nullable: true,
   })
   receivedAt!: Date | null;
+
+  @Column({
+    name: 'reject_reason',
+    type: 'text',
+    nullable: true,
+  })
+  rejectReason!: string | null;
 
   @OneToMany(() => LaborAccidentReportDetail, (detail) => detail.report)
   details!: LaborAccidentReportDetail[];

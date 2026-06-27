@@ -92,7 +92,9 @@ async function bootstrap() {
     customSiteTitle: 'VNA Backend API Docs',
   });
 
-  await app.listen(process.env.APP_PORT ?? 3000);
+  await app.listen(process.env.APP_PORT ?? 3000, '0.0.0.0');
 }
 
+// Bootstrapping the NestJS application
 bootstrap();
+

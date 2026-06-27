@@ -312,8 +312,12 @@ export class AuthService {
     };
   }
 
-  async sendChangeGmailOtp(userId: number) {
+  async sendChangeGmailOtp(userId: number, newEmail?: string) {
     const user = await this.findActiveUserById(userId);
+    if (newEmail) {
+      const normalizedNewEmail = this.normalizeEmail(newEmail);
+      await this.assertNewEmailCanBeUsed(user, normalizedNewEmail);
+    }
     const otp = this.generateOtp();
     const expireMinutes = this.getOtpExpireMinutes();
     const currentEmail = this.normalizeEmail(user.email);

@@ -18,7 +18,7 @@ export class UserSeedService implements OnApplicationBootstrap {
 
     @InjectRepository(UserRole)
     private readonly userRoleRepository: Repository<UserRole>,
-  ) {}
+  ) { }
 
   async onApplicationBootstrap() {
     await this.createDefaultUsers();
@@ -69,9 +69,10 @@ export class UserSeedService implements OnApplicationBootstrap {
     position: string;
   }) {
     const existedUser = await this.userRepository.findOne({
-      where: {
-        username: data.username,
-      },
+      where: [
+        { username: data.username },
+        { email: data.email },
+      ],
     });
 
     if (existedUser) {
